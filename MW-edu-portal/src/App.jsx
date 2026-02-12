@@ -1,12 +1,13 @@
-import SearchBar from './components/searchBar.jsx'
-import WelcomeMessage from './components/welcomeMessage.jsx'
-
+import WelcomePage from './pages/WelcomePage';
+import Upload from './pages/UploadPage';
+import ProgressTracker from './pages/ProgressTracker';
 import './App.css';
-import FormButtons from './components/FormButtons.jsx';
-import SubjectButtons from './components/SubjectButtons.jsx';
+
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 
 function App() {
   return (
+    /*
     <div className="welcomePage">
       <WelcomeMessage/>
       <SearchBar/>
@@ -19,6 +20,16 @@ function App() {
       <SubjectButtons/>
       <SubjectButtons/>
     </div>
+    */
+    
+    <Router>
+      <Routes>
+        <Route path="/" element={<WelcomePage/>}/>
+        <Route path="/upload" element={<Upload/>}/>
+        <Route path="/progress-tracker" element={<ProgressTracker/>}/>
+      </Routes>
+    </Router> 
+
   );
 }
 

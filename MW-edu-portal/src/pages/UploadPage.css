@@ -1,0 +1,67 @@
+/* Written by: Becca Biukoto */
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 220px;
+    background: white;
+    border-right: 2px solid black;
+    padding: 20px;
+}
+
+.sidebar h2 {
+    margin-bottom: 20px;
+}
+
+.sidebar a {
+    display: block;
+    padding: 10px;
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: black;
+}
+
+.sidebar a:hover {
+    background: #ddd;
+}
+
+/* Main */
+.main {
+    flex: 1;
+    padding: 30px;
+}
+
+/* Drop Box */
+.drop-box {
+    border: 2px dashed black;
+    height: 140px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: white;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+
+/* Filters */
+.filters-box {
+    border: 2px solid black;
+    background: white;
+    padding: 15px;
+    height: 180px;
+    margin-bottom: 20px;
+}
+
+/* Button */
+button {
+    padding: 12px 30px;
+    border-radius: 20px;
+    border: 2px solid black;
+    cursor: pointer;
+}
