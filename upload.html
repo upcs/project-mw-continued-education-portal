@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UPlendo</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      height: 100vh;
+      background: #f5f5f5;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px;
+      background: white;
+      border-right: 2px solid black;
+      padding: 20px;
+    }
+
+    .sidebar h2 {
+      margin-bottom: 20px;
+    }
+
+    .sidebar a {
+      display: block;
+      padding: 10px;
+      margin-bottom: 10px;
+      text-decoration: none;
+      color: black;
+    }
+
+    .sidebar a:hover {
+      background: #ddd;
+    }
+
+    /* Main */
+    .main {
+      flex: 1;
+      padding: 30px;
+    }
+
+    /* Drop Box */
+    .drop-box {
+      border: 2px dashed black;
+      height: 140px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: white;
+      cursor: pointer;
+      margin-bottom: 15px;
+    }
+
+    /* Filters */
+    .filters-box {
+      border: 2px solid black;
+      background: white;
+      padding: 15px;
+      height: 180px;
+      margin-bottom: 20px;
+    }
+
+    /* Button */
+    button {
+      padding: 12px 30px;
+      border-radius: 20px;
+      border: 2px solid black;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>UPlendo</h2>
+    <a href="#">Dashboard</a>
+    <a href="#">Profile</a>
+    <a href="#"><b>Upload</b></a>
+    <a href="#">Progress Tracker</a>
+    <a href="#">Settings</a>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <h3>1. Upload Material</h3>
+
+    <input type="file" id="fileInput" hidden>
+
+    <div class="drop-box" id="dropBox">
+      ⬆ Drag & Drop or Click
+    </div>
+
+    <p id="fileName"></p>
+
+    <h3>2. Choose Filters</h3>
+
+    <div class="filters-box">
+      <p>Filter Option 1</p>
+      <p>Filter Option 2</p>
+      <p>Filter Option 3</p>
+    </div>
+
+    <h3>3. Upload</h3>
+
+    <button id="uploadBtn">UPLOAD ⬇</button>
+
+  </div>
+
+  <script>
+    const dropBox = document.getElementById("dropBox");
+    const fileInput = document.getElementById("fileInput");
+    const fileName = document.getElementById("fileName");
+
+    dropBox.addEventListener("click", () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      fileName.textContent = "Selected: " + e.target.files[0].name;
+    });
+  </script>
+
+</body>
+</html>
