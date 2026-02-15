@@ -7,21 +7,6 @@ import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 
 function App() {
   return (
-    /*
-    <div className="welcomePage">
-      <WelcomeMessage/>
-      <SearchBar/>
-
-      <h1 id="forms">Forms</h1>
-      <FormButtons/>
-
-      <h1 id="subjects">Subjects</h1>
-      <SubjectButtons/>
-      <SubjectButtons/>
-      <SubjectButtons/>
-    </div>
-    */
-    
     <Router>
       <Routes>
         <Route path="/" element={<WelcomePage/>}/>
