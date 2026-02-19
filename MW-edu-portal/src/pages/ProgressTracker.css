@@ -7,6 +7,12 @@ body {
     height: 100vh;
 }
 
+.container {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+}
+
 /* Sidebar */
 .sidebar {
     width: 220px;

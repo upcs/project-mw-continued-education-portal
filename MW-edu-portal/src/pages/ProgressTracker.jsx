@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 
 function ProgressTracker() {
     return (
-        <div>
+        <div className="container">
             {/* Sidebar */}
             <div className="sidebar">
                 <h2>UPlendo</h2>

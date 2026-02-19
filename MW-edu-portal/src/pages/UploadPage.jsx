@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 function UploadPage() 
 {
     return (
-    <div>
+    <div className="container">
         {/* Sidebar */}
 
         <div className="sidebar">
