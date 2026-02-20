@@ -1,12 +1,12 @@
 
 import './styles.css'; // Importing your separate CSS page
 
-import Header from './components/Header';
-import NavigationBar from './components/NavigationBar';
-import Notes from './components/Notes';
-import ContentViewer from './components/ContentViewer';
-import Tags from './components/Tags';
-import Footer from './components/Footer';
+import Header from '../components/Header';
+import NavigationBar from '../components/NavigationBar';
+import Notes from '../components/Notes';
+import ContentViewer from '../components/ContentViewer';
+import Tags from '../components/Tags';
+import Footer from '../components/Footer';
 
 const App = () => {
   return (
