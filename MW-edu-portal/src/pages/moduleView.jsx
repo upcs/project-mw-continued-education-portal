@@ -1,6 +1,5 @@
 
-import './moduleView.css'
-
+import './ModuleView.css'
 import Header from '../components/Header';
 import NavigationBar from '../components/NavigationBar';
 import Notes from '../components/Notes';
@@ -8,7 +7,7 @@ import ContentViewer from '../components/ContentViewer';
 import Tags from '../components/Tags';
 import Footer from '../components/Footer';
 
-function moduleView(){
+function ModuleView(){
   return (
     <div className="page-bg">
       <div className="app-wrapper">
@@ -27,4 +26,4 @@ function moduleView(){
   );
 };
 
-export default App;
+export default ModuleView;
