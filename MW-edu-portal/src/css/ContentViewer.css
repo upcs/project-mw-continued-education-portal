@@ -1,0 +1,30 @@
+.center-view {
+  width: 50%;
+  border: 2px solid #9ca3af;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #f9fafb;
+  text-align: center;
+}
+
+.center-view h2 {
+  font-size: 36px;
+  color: #374151;
+  margin-bottom: 32px;
+}
+
+.center-view h3 {
+  font-size: 28px;
+  color: #4b5563;
+  margin-bottom: 32px;
+}
+
+.center-view p {
+  font-size: 20px;
+  color: #6b7280;
+  line-height: 1.5;
+}

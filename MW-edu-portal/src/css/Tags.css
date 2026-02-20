@@ -1,0 +1,30 @@
+.sidebar-right {
+  width: 25%;
+  border: 2px solid #9ca3af;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  background-color: #f9fafb;
+}
+
+.sidebar-right h2 {
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+
+.tags-box {
+  border: 2px solid #9ca3af;
+  border-radius: 8px;
+  padding: 16px;
+  height: 192px;
+  background-color: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.tags-box span {
+  color: #9ca3af;
+  font-style: italic;
+}
