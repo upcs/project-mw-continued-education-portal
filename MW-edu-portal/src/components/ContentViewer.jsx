@@ -1,3 +1,4 @@
+import '../css/ContentViewer.css';
 
 function ContentViewer() {
   return (

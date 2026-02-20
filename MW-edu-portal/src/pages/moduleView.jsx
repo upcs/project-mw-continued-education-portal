@@ -1,5 +1,5 @@
 
-import './styles.css'; // Importing your separate CSS page
+import './moduleView.css'
 
 import Header from '../components/Header';
 import NavigationBar from '../components/NavigationBar';
@@ -8,7 +8,7 @@ import ContentViewer from '../components/ContentViewer';
 import Tags from '../components/Tags';
 import Footer from '../components/Footer';
 
-const App = () => {
+function moduleView(){
   return (
     <div className="page-bg">
       <div className="app-wrapper">

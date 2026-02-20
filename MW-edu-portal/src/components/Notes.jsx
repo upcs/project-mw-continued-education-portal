@@ -1,3 +1,4 @@
+import '../css/Notes.css';
 
 function Notes(){
   return (
