@@ -11,10 +11,14 @@ function WelcomePage() {
   return (
     <div className="welcomePage">
       
-      <div className='uploadbutton-container'>
+      <div className='uploadButton-container'>
         <Link to = "/upload" className='uploadButton'>
           <Button text = "Upload"/>
         </Link>
+        <Link to = "/module" className='moduleButton'>
+          <Button text = "Module"/>
+        </Link>
+
       </div>
 
       <WelcomeMessage/>

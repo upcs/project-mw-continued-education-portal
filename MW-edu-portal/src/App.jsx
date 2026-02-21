@@ -1,6 +1,7 @@
 import WelcomePage from './pages/WelcomePage';
 import Upload from './pages/UploadPage';
 import ProgressTracker from './pages/ProgressTracker';
+//import ModuleView from './pages/ModuleView';
 import './App.css';
 
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
@@ -12,6 +13,7 @@ function App() {
         <Route path="/" element={<WelcomePage/>}/>
         <Route path="/upload" element={<Upload/>}/>
         <Route path="/progress-tracker" element={<ProgressTracker/>}/>
+    
       </Routes>
     </Router> 
 
