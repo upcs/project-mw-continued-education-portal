@@ -1,0 +1,35 @@
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.page-bg {
+  background-color: #f3f4f6;
+  padding: 24px;
+  min-height: 100vh;
+  color: #1f2937;
+}
+
+.app-wrapper {
+  max-width: 1152px;
+  margin: 0 auto;
+  border: 2px solid #9ca3af;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  height: 90vh;
+  background-color: #ffffff;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  min-height: 0;
+}
