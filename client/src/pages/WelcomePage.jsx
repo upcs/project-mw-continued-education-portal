@@ -15,7 +15,7 @@ function WelcomePage() {
         <Link to = "/upload" className='uploadButton'>
           <Button text = "Upload"/>
         </Link>
-        <Link to = "/module" className='moduleButton'>
+        <Link to = "/module-view" className='moduleButton'>
           <Button text = "Module"/>
         </Link>
 
@@ -28,8 +28,6 @@ function WelcomePage() {
       <FormButtons/>
 
       <h1 id="subjects">Subjects</h1>
-      <SubjectButtons/>
-      <SubjectButtons/>
       <SubjectButtons/>
     </div>
   );

@@ -1,5 +1,5 @@
 
-import './ModuleView.css'
+import './moduleView.css'
 import Header from '../components/Header';
 import NavigationBar from '../components/NavigationBar';
 import Notes from '../components/Notes';

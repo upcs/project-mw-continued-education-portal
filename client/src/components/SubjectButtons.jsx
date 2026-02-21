@@ -10,6 +10,11 @@ function ButtonRow()
                 <div><Button text = "Science"/></div>
                 <div><Button text = "English"/></div>
                 <div><Button text = "History"/></div>
+
+                <div><Button text = "Math"/></div>
+                <div><Button text = "Science"/></div>
+                <div><Button text = "English"/></div>
+                <div><Button text = "History"/></div>
             </div>
         </>
     )
