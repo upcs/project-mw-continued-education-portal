@@ -6,7 +6,7 @@ function Header(){
       <div className="logo-box">
         LOGO<br />100x100
       </div>
-      <h1 className="main-title">Title Of</h1>
+      <h1 className="main-title">Module No#</h1>
       <div className="profile-box">
         Profile<br />
         <span className="profile-desc">external module<br />import</span>

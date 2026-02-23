@@ -6,7 +6,7 @@ function Footer() {
       <div className="empty-box"></div>
       <div className="pagination">
         <button className="page-btn">&larr; prev</button>
-        <span>........</span>
+        <span>1 2 3 ...</span>
         <button className="page-btn">next &rarr;</button>
       </div>
       <div className="empty-box"></div>

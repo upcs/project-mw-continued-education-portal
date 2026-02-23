@@ -4,13 +4,13 @@ function NavigationBar() {
   return (
     <nav className="nav-bar">
       <div className="nav-buttons">
-        <button className="btn">to-do</button>
-        <button className="btn">Back</button>
+        <button className="btn">Progress</button>
+        <button className="btn">Home</button>
       </div>
       <div className="breadcrumbs">
-        a \ b \ c \ Navi. Bar
+       <p> a \ b \ c \ Navi. Bar </p>
       </div>
-      <button className="btn">take a quiz</button>
+      <button className="btn">Quiz</button>
     </nav>
   );
 };
