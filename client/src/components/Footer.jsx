@@ -3,13 +3,7 @@ import '../css/Footer.css';
 function Footer() {
   return (
     <footer className="footer">
-      <div className="empty-box"></div>
-      <div className="pagination">
-        <button className="page-btn">&larr; prev</button>
-        <span>1 2 3 ...</span>
-        <button className="page-btn">next &rarr;</button>
-      </div>
-      <div className="empty-box"></div>
+      
     </footer>
   );
 };
