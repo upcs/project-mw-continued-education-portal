@@ -1,0 +1,68 @@
+.welcomePage
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100vw;           /* Forces container to be 100% of the Viewport Width */
+}
+
+.button
+{
+    display: flex;
+    background-color: white;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 10px 20px;
+    height: 125px;
+    width: 150px;
+    color: black;
+    box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.2);
+}
+
+.uploadButton button
+{
+    display: flex;
+    align-self: start;
+    height: 50px;
+    width: 150px;
+}
+
+.uploadButton-container
+{
+    display: flex;
+    justify-content: space-between; 
+    width: 100%;            /* Allows the buttons to actually move apart */
+    padding: 20px 50px;     /* Keeps them from touching the very edge */
+    box-sizing: border-box; /* Crucial so padding doesn't push the screen wide */
+}
+
+.moduleButton button
+{
+    display: flex;
+    height: 50px;
+    width: 150px;
+}
+
+.form-button-container
+{
+    display: flex;
+    justify-content: center; /* This is what actually pushes the boxes to the middle */
+    width: 100%;             /* This makes the row span the whole screen */
+    gap: 20px;
+    flex-wrap: wrap;         /* This ensures they don't go off-screen on small monitors */
+}
+
+.subject-button-container
+{
+    display: grid;
+    grid-template-columns: repeat(4, 150px);
+    justify-content: center;
+    align-items: center;
+    gap: 20px; /* Optional: adds space (gutters) between grid items */
+}
+
+#forms, #subjects
+{
+    padding: auto;
+}
