@@ -11,9 +11,9 @@ function NavigationBar() {
         </Link>
       </div>
       <div className="breadcrumbs">
-        a \ b \ c \ Navi. Bar
+       <p> a \ b \ c \ Navi. Bar </p>
       </div>
-      <button className="btn">take a quiz</button>
+      <button className="btn">Quiz</button>
     </nav>
   );
 };
