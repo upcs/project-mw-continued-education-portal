@@ -1,6 +1,6 @@
 const express = require('express');
-const app = express();
-const multer = require('multer');
+var createError = require('http-errors');
+var cors = require('cors');
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -9,6 +9,19 @@ const storage = multer.diskStorage({
     filename: function (req, file, cb) {
         cb(null, file.originalname);
     }
+})
+
+const app = express();
+app.use(cors());
+
+var loginRouter = require("./login.js");
+var signupRouter = require("./signup.js");
+
+app.use("/login", loginRouter);
+app.use("/signup", signupRouter);
+app.get("/api", (req, res) => 
+{
+    res.json({"users": ["user1", "user2", "user3"]});
 });
 
 const upload = multer({ storage: storage });
