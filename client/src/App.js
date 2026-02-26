@@ -5,6 +5,10 @@ import WelcomePage from './pages/WelcomePage';
 import Upload from './pages/UploadPage';
 import ProgressTracker from './pages/ProgressTracker';
 import ModuleView from './pages/moduleView';
+import SearchResults from './pages/SearchResults';
+import Dashboard from './pages/DashboardPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 
@@ -18,6 +22,10 @@ function App()
           <Route path="/upload" element={<Upload/>}/>
           <Route path="/progress-tracker" element={<ProgressTracker/>}/>
           <Route path="/module-view" element={<ModuleView/>}/>
+          <Route path="/results" element={<SearchResults/>}/>
+          <Route path="/dashboard" element={<Dashboard/>}/>
+          <Route path="/profile" element={<ProfilePage/>}/>
+          <Route path="/settings" element={<SettingsPage/>}/>
         </Routes>
       </Router> 
     </div>

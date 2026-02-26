@@ -9,11 +9,11 @@ function ProgressTracker() {
             {/* Sidebar */}
             <div className="sidebar">
                 <h2>UPlendo</h2>
-                <a href="#">Dashboard</a>
-                <a href="#">Profile</a>
+                <Link to="/dashboard">Dashboard</Link>
+                <Link to="/profile">Profile</Link>
                 <Link to="/upload">Upload</Link>
-                <a href="#"><b>Progress Tracker</b></a>
-                <a href="#">Options</a>
+                <Link to="/progress-tracker"><b>Progress Tracker</b></Link>
+                <Link to="/settings">Settings</Link>
                 <Link to="/">Home</Link>
             </div>
 

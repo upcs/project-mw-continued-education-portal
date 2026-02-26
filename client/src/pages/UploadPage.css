@@ -16,6 +16,8 @@ body {
 /* Sidebar */
 .sidebar {
     width: 220px;
+    min-width: 220px;
+    height: 100vh;
     background: white;
     border-right: 2px solid black;
     padding: 20px;
@@ -46,6 +48,7 @@ body {
 /* Drop Box */
 .drop-box {
     border: 2px dashed black;
+    width: 100vh;
     height: 140px;
     display: flex;
     justify-content: center;
