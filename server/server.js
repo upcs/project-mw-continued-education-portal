@@ -1,6 +1,15 @@
 const express = require('express');
-const app = express();
+var createError = require('http-errors');
+var cors = require('cors');
 
+const app = express();
+app.use(cors());
+
+var loginRouter = require("./login.js");
+var signupRouter = require("./signup.js");
+
+app.use("/login", loginRouter);
+app.use("/signup", signupRouter);
 app.get("/api", (req, res) => 
 {
     res.json({"users": ["user1", "user2", "user3"]});

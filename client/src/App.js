@@ -5,6 +5,8 @@ import WelcomePage from './pages/WelcomePage';
 import Upload from './pages/UploadPage';
 import ProgressTracker from './pages/ProgressTracker';
 import ModuleView from './pages/moduleView';
+import Login from './pages/login';
+import Signin from './pages/signin';
 
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 
@@ -18,6 +20,8 @@ function App()
           <Route path="/upload" element={<Upload/>}/>
           <Route path="/progress-tracker" element={<ProgressTracker/>}/>
           <Route path="/module-view" element={<ModuleView/>}/>
+          <Route path="/login" element={<Login/>}/>
+          <Route path="/signin" element={<Signin/>}/>
         </Routes>
       </Router> 
     </div>
