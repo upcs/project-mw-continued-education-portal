@@ -1,5 +1,5 @@
 
-.sidebar-right {
+.tags-sidebar-right {
   width: 25%;
   border: 2px solid #9ca3af;
   border-radius: 12px;
@@ -9,7 +9,7 @@
   background-color: #f9fafb;
 }
 
-.sidebar-right h2 {
+.tags-sidebar-right h2 {
   font-size: 24px;
   margin-bottom: 12px;
 }

@@ -2,8 +2,8 @@ import '../css/Tags.css';
 
 function Tags() {
   return (
-    <section className="sidebar">
-      <h2>Tags:</h2>
+    <section className="tags-sidebar">
+      <h2>tags :-</h2>
       <div className="tags-box">
         <span>Small tags box</span>
       </div>

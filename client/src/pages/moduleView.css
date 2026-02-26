@@ -7,7 +7,7 @@
 }
 
 .page-bg {
-  background-color: #f3f4f6;
+  background-color: #74defb;
   padding: 24px;
   min-height: 100vh;
   color: #1f2937;
@@ -15,7 +15,7 @@
 }
 
 .app-wrapper {
-  max-width: 1152px;
+  max-width: 1300px;
   margin: 0 auto;
   border: 2px solid #9ca3af;
   border-radius: 12px;
