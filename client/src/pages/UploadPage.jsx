@@ -1,21 +1,37 @@
 import './UploadPage.css';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 {/* Written by: Becca Biukoto */}
 
 function UploadPage() 
 {
+    const [file, setFile] = useState();
+
+    const upload = () => {
+        const formData = new FormData();
+        formData.append('file', file);
+        axios.post('/upload', formData)
+            .then(response => {
+                alert('File uploaded successfully!');
+            })
+            .catch(error => {
+                alert('Error uploading file');
+            });
+    };
+
     return (
     <div className="container">
         {/* Sidebar */}
 
         <div className="sidebar">
             <h2>UPlendo</h2>
-            <a href="#">Dashboard</a>
-            <a href="#">Profile</a>
-            <a href="#"><b>Upload</b></a>
+            <Link to="/dashboard">Dashboard</Link>
+            <Link to="/profile">Profile</Link>
+            <Link to="/upload"><b>Upload</b></Link>
             <Link to="/progress-tracker">Progress Tracker</Link>
-            <a href="#">Settings</a>
+            <Link to="/settings">Settings</Link>
             <Link to="/">Home</Link>
         </div>
 
@@ -23,13 +39,14 @@ function UploadPage()
 
         <div className="main">
             <h3>1. Upload Material</h3>
-            <input type="file" id="fileInput" hidden />
+            <input type="file" id="fileInput" style={{ display: 'none' }} onChange={(e) => setFile(e.target.files[0])}/>
 
-            <div className="drop-box" id="dropBox">
-                ⬆ Drag &amp; Drop or Click
-            </div>
+            <label className="drop-box" id="dropBox" htmlFor="fileInput">
 
-            <p id="fileName" />
+                {file ? <span>{`Selected File: ${file.name}`}</span> : <span>⬆ Drag &amp; Drop or Click</span>}
+                
+            </label>
+            
             <h3>2. Choose Filters</h3>
 
             <div className="filters-box">
@@ -39,7 +56,7 @@ function UploadPage()
             </div>
 
             <h3>3. Upload</h3>
-            <button id="uploadBtn">UPLOAD ⬇</button>
+            <button id="uploadBtn" onClick={upload}>UPLOAD ⬇</button>
         </div>
     </div>
     )   

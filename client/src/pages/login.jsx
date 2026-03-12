@@ -18,6 +18,7 @@
 //export default Login
 
 import React, { useState } from 'react';
+import './Login.css'
 import $ from 'jquery'; // Import jQuery
 
 function Login() {
@@ -63,16 +64,16 @@ function Login() {
   };
 
   return (
-    <div>
+    <div className='login-container'>
       <p>Enter login info</p>
-      <input
+      <input className='usernameBar'
         type="text"
         value={username}
         onChange={handleUsernameChange}
         placeholder="Username"
       />
       <input
-        type="password"
+        type="password" className='passwordBar'
         value={password}
         onChange={handlePasswordChange}
         placeholder="Password"

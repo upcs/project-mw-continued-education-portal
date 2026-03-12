@@ -1,5 +1,6 @@
 
 import React, {useState} from 'react';
+import { Link } from 'react-router-dom';
 
 function SearchBar() {
     const [input, setInput] = useState('');
@@ -12,7 +13,9 @@ function SearchBar() {
                 </div>
 
                 <div className="searchButton">
-                    <button type="submit" className='searchButton'>Search</button>
+                    <Link to = "/results" className='searchButton'>
+                        <button type="submit" className='searchButton'>Search</button>
+                    </Link>
                 </div>
             </div>
         </>

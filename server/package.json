@@ -1,6 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
+  "proxy": "http://localhost:3000",
   "description": "",
   "main": "server.js",
   "scripts": {
@@ -16,6 +17,7 @@
     "async": "^3.2.6",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "mysql": "^2.18.1"
+    "mysql": "^2.18.1",
+    "multer": "^2.0.2"
   }
 }
