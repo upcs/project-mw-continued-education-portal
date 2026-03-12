@@ -35,7 +35,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
     res.json({ message: 'File uploaded successfully', file: req.file });
 });
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 3000;
 
 app.listen(port, () => 
 {
