@@ -42,25 +42,17 @@ function Login() {
       alert("Please enter both username and password.");
       return;
     }
-
+	alert(username + " " + password);
     // Use $.post to send login data to the backend
     $.post(
-      'http://localhost:5000/login', // Backend URL
+     'http://cs341s26mwed.campus.up.edu:5000/login', //'http://localhost:5000/login', // Backend URL
       {
         username: username,
         password: password
       },
-      (data, status) => {
-        if (status === 'success') {
-          alert('Login Successful');
-        } else {
-          alert('Login Failed');
-        }
-      }
-    ).fail((error) => {
-      console.error('Error logging in:', error);
-      alert('Error logging in, please try again later');
-    });
+      function(data) {
+	alert("login");
+      });
   };
 
   return (

@@ -11,6 +11,7 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import Login from './pages/login';
 import Signin from './pages/signin';
+import Profile from './pages/profile';
 
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 
@@ -30,6 +31,7 @@ function App()
           <Route path="/settings" element={<SettingsPage/>}/>
           <Route path="/login" element={<Login/>}/>
           <Route path="/signin" element={<Signin/>}/>
+	  <Route path="/profile" element={<Profile/>}/>
         </Routes>
       </Router> 
     </div>
