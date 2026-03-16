@@ -9,13 +9,14 @@
 exports.version = '0.0.1';
 
 
-var mysql = require('mysql'),
+var mysql = require('mysql2'),
     async = require('async');
 
-var host = "10.6.2.7";    //pdx0mysql00 IP address
-var database = "phamt27";  //database name
-var user = "phamt27";         //username (change to match your db)
-var password = "EFIHDKQQKSN";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
+var host = "localhost";
+//var host = "cs341s26mwed.campus.up.edu";    //pdx0mysql00 IP address
+var database = "malawi";  //database name
+var user = "admin2";         //username (change to match your db)
+var password = "123";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
 
 /**
  * dbquery
