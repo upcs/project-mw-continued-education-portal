@@ -1,22 +1,3 @@
-//import React, { useState } from 'react';
-
-//function Login() {
-//return (
-//<div>
-//<p>Enter log-in info</p>
-//<input type="text"></input>
-//<input type="password"></input>
-//<button onClick={login_button}></button>
-//</div>
-//)
-//}
-
-//const login_button = () => {
-//alert("hello");
-//};
-
-//export default Login
-
 import React, { useState } from 'react';
 import './Login.css'
 import $ from 'jquery'; // Import jQuery
@@ -74,5 +55,7 @@ function Login() {
     </div>
   );
 }
+
+//post request here
 
 export default Login;
