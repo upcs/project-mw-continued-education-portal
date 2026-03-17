@@ -1,6 +1,7 @@
 const express = require('express');
-var createError = require('http-errors');
-var cors = require('cors');
+const createError = require('http-errors');
+const cors = require('cors');
+const multer = require('multer');
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
