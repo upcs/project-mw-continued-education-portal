@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './SignIn.css'
 //const dbms = require("./dbms.js");
 
-function Signin() 
+function Signup() 
 {
     return (
         <div >
@@ -18,4 +18,4 @@ const login_button = () =>
     alert("hello");
 };
 
-export default Signin
+export default Signup
