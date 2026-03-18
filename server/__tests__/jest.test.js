@@ -1,4 +1,4 @@
-const { myinfo } = require("../server2");
+const { myinfo, profile } = require("../server2");
 
 beforeAll(() => {
     jest.spyOn(console, "log").mockImplementation(() => {});
@@ -14,3 +14,4 @@ fakeres = {
            json: jest.fn()
 	  }
 test("myinfo", (done) => {myinfo(fakereq, fakeres); done();});
+test("profile", (done) => {profile(fakereq, fakeres); done();})

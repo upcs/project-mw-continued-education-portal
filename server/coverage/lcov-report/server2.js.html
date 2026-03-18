@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">30% </span>
+                <span class="strong">38.33% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>18/60</span>
+                <span class='fraction'>23/60</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">9.09% </span>
+                <span class="strong">18.18% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/11</span>
+                <span class='fraction'>2/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">33.33% </span>
+                <span class="strong">43.39% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>18/54</span>
+                <span class='fraction'>23/53</span>
             </div>
         
             
@@ -153,7 +153,16 @@
 <a name='L88'></a><a href='#L88'>88</a>
 <a name='L89'></a><a href='#L89'>89</a>
 <a name='L90'></a><a href='#L90'>90</a>
-<a name='L91'></a><a href='#L91'>91</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -222,12 +231,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -311,15 +329,24 @@ app.post('/signup', <span class="fstat-no" title="function not covered" >(r</spa
 	});
 &nbsp;
 &nbsp;
-app.post('/profile', <span class="fstat-no" title="function not covered" >(r</span>eq, res) =&gt; {
-var body = <span class="cstat-no" title="statement not covered" >req.body;</span>
-<span class="cstat-no" title="statement not covered" >console.log(req.body.username);</span>
-var user = <span class="cstat-no" title="statement not covered" >body.username;</span>
-<span class="cstat-no" title="statement not covered" >query = `select * from profile where username = \"${user}\";`;</span>
-<span class="cstat-no" title="statement not covered" >dbms.dbquery(query, <span class="fstat-no" title="function not covered" >(e</span>rr, response) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >res.json(response);</span>
-});
-});
+const profile = function (req, res) {
+var body = req.body;
+//console.log(req.body.username);
+var user = body.username;
+query = `select * from profile where username = \"${user}\";`;
+dbms.dbquery(query, <span class="fstat-no" title="function not covered" >(e</span>rr, response) =&gt; {<span class="cstat-no" title="statement not covered" >res.json(response);}</span>);
+};
+&nbsp;
+app.post('/profile', profile);
+//(req, res) =&gt; {
+//var body = req.body;
+//console.log(req.body.username);
+//var user = body.username;
+//query = `select * from profile where username = \"${user}\";`;
+//dbms.dbquery(query, (err, response) =&gt; {
+//res.json(response);
+//});
+//});
 &nbsp;
 &nbsp;
 const myinfo = function (req, res) {
@@ -332,7 +359,7 @@ app.listen(PORT, <span class="fstat-no" title="function not covered" >()</span> 
 <span class="cstat-no" title="statement not covered" >  console.log(`Server running on http://localhost:${PORT}`);</span>
 });
 &nbsp;
-module.exports = { myinfo };
+module.exports = { myinfo, profile };
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -340,7 +367,7 @@ module.exports = { myinfo };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-18T21:04:54.121Z
+                at 2026-03-18T21:19:16.220Z
             </div>
         <script src="prettify.js"></script>
         <script>

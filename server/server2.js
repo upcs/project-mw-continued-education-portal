@@ -66,15 +66,24 @@ app.post('/signup', (req, res) => {
 	});
 
 
-app.post('/profile', (req, res) => {
+const profile = function (req, res) {
 var body = req.body;
-console.log(req.body.username);
+//console.log(req.body.username);
 var user = body.username;
 query = `select * from profile where username = \"${user}\";`;
-dbms.dbquery(query, (err, response) => {
-res.json(response);
-});
-});
+dbms.dbquery(query, (err, response) => {res.json(response);});
+};
+
+app.post('/profile', profile);
+//(req, res) => {
+//var body = req.body;
+//console.log(req.body.username);
+//var user = body.username;
+//query = `select * from profile where username = \"${user}\";`;
+//dbms.dbquery(query, (err, response) => {
+//res.json(response);
+//});
+//});
 
 
 const myinfo = function (req, res) {
@@ -87,4 +96,4 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
-module.exports = { myinfo };
+module.exports = { myinfo, profile };
