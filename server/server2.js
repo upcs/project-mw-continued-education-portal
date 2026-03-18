@@ -42,23 +42,24 @@ app.post('/signup', (req, res) => {
 
         var query = `Select * from userdata where username = "${username}";`;
 	var query2 = `insert into userdata values ("${username}", "${password}")`;
-	var query3 = `insert into profile values ()`;
+	var query3 = `insert into profile values ("${username}", "${name}", "${email}", "${whatsapp}", "${photo}")`;
 	var query4 = `insert into permissions values ()`;
 	var query5= `insert into userdata values ("hello", "hello");`
 	console.log(query);
 	dbms.dbquery(query, (err, reponse) => {
 	//error, username already exists
-	//if (reponse[0] != undefined) {res.json({error: "username"});}
+	if (reponse[0] != undefined) {res.json({error: "username"});}
 	//otherwise, create new account
-	//else {
-	//dbms.dbquery(query2, (err, reponse) => {
-	//if (err) {res.json({error : "db"}); return;}
-	//else {
+	else {
+	dbms.dbquery(query2, (err, reponse) => {
+	if (err) {res.json({error : "db"}); return;}
+	else {
 	//happy path
+	dbms.dbquery(query3, (err, response) => {if (err) {console.log("err");}});
 	res.json({error : "none"});
-	//}
-	//}); // query 2 end
-	//} // else
+	}
+	}); // query 2 end
+	} // else
 	
 	}); // query 1
 
