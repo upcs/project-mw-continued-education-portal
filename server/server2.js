@@ -79,6 +79,7 @@ res.json(response);
 
 const myinfo = function (req, res) {
 res.json({test : "true"});
+return;
 };
 app.post('/myinfo', myinfo);
 

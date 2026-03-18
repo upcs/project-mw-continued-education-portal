@@ -1,38 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1773781618212" clover="3.2.0">
-  <project timestamp="1773781618212" name="All files">
-    <metrics statements="77" coveredstatements="24" conditionals="10" coveredconditionals="2" methods="15" coveredmethods="0" elements="102" coveredelements="26" complexity="0" loc="77" ncloc="77" packages="1" files="2" classes="2"/>
+<coverage generated="1773867894133" clover="3.2.0">
+  <project timestamp="1773867894133" name="All files">
+    <metrics statements="85" coveredstatements="46" conditionals="18" coveredconditionals="7" methods="17" coveredmethods="7" elements="120" coveredelements="60" complexity="0" loc="85" ncloc="85" packages="1" files="2" classes="2"/>
     <file name="dbms.js" path="/home/phamt27@campus.up.edu/project-mw-continued-education-portal/server/dbms.js">
-      <metrics statements="26" coveredstatements="8" conditionals="2" coveredconditionals="0" methods="5" coveredmethods="0"/>
-      <line num="9" count="1" type="stmt"/>
-      <line num="12" count="1" type="stmt"/>
-      <line num="13" count="1" type="stmt"/>
-      <line num="15" count="1" type="stmt"/>
-      <line num="17" count="1" type="stmt"/>
-      <line num="18" count="1" type="stmt"/>
-      <line num="19" count="1" type="stmt"/>
-      <line num="32" count="1" type="stmt"/>
-      <line num="35" count="0" type="stmt"/>
-      <line num="37" count="0" type="stmt"/>
-      <line num="41" count="0" type="stmt"/>
-      <line num="42" count="0" type="stmt"/>
-      <line num="49" count="0" type="stmt"/>
-      <line num="54" count="0" type="stmt"/>
-      <line num="55" count="0" type="stmt"/>
-      <line num="60" count="0" type="stmt"/>
-      <line num="61" count="0" type="stmt"/>
-      <line num="62" count="0" type="stmt"/>
-      <line num="63" count="0" type="stmt"/>
-      <line num="69" count="0" type="cond" truecount="0" falsecount="2"/>
-      <line num="70" count="0" type="stmt"/>
-      <line num="71" count="0" type="stmt"/>
-      <line num="72" count="0" type="stmt"/>
-      <line num="74" count="0" type="stmt"/>
+      <metrics statements="31" coveredstatements="28" conditionals="8" coveredconditionals="5" methods="6" coveredmethods="6"/>
+      <line num="9" count="2" type="stmt"/>
+      <line num="12" count="2" type="stmt"/>
+      <line num="13" count="2" type="stmt"/>
+      <line num="15" count="2" type="stmt"/>
+      <line num="17" count="2" type="stmt"/>
+      <line num="18" count="2" type="stmt"/>
+      <line num="19" count="2" type="stmt"/>
+      <line num="32" count="2" type="stmt"/>
+      <line num="35" count="1" type="stmt"/>
+      <line num="37" count="1" type="stmt"/>
+      <line num="41" count="1" type="stmt"/>
+      <line num="42" count="1" type="stmt"/>
+      <line num="49" count="1" type="stmt"/>
+      <line num="54" count="1" type="stmt"/>
+      <line num="55" count="1" type="stmt"/>
+      <line num="56" count="1" type="cond" truecount="1" falsecount="1"/>
+      <line num="57" count="1" type="cond" truecount="3" falsecount="1"/>
+      <line num="58" count="1" type="stmt"/>
+      <line num="60" count="1" type="stmt"/>
+      <line num="64" count="1" type="stmt"/>
+      <line num="65" count="1" type="stmt"/>
+      <line num="66" count="1" type="stmt"/>
+      <line num="67" count="1" type="stmt"/>
+      <line num="68" count="1" type="stmt"/>
+      <line num="74" count="1" type="cond" truecount="1" falsecount="1"/>
       <line num="75" count="0" type="stmt"/>
-      <line num="79" count="0" type="stmt"/>
+      <line num="76" count="0" type="stmt"/>
+      <line num="77" count="0" type="stmt"/>
+      <line num="79" count="1" type="stmt"/>
+      <line num="80" count="1" type="stmt"/>
+      <line num="84" count="1" type="stmt"/>
     </file>
     <file name="server2.js" path="/home/phamt27@campus.up.edu/project-mw-continued-education-portal/server/server2.js">
-      <metrics statements="51" coveredstatements="16" conditionals="8" coveredconditionals="2" methods="10" coveredmethods="0"/>
+      <metrics statements="54" coveredstatements="18" conditionals="10" coveredconditionals="2" methods="11" coveredmethods="1"/>
       <line num="1" count="1" type="stmt"/>
       <line num="2" count="1" type="stmt"/>
       <line num="3" count="1" type="stmt"/>
@@ -67,23 +72,26 @@
       <line num="46" count="0" type="stmt"/>
       <line num="47" count="0" type="stmt"/>
       <line num="48" count="0" type="stmt"/>
-      <line num="50" count="0" type="cond" truecount="0" falsecount="2"/>
-      <line num="53" count="0" type="stmt"/>
-      <line num="54" count="0" type="cond" truecount="0" falsecount="2"/>
-      <line num="57" count="0" type="stmt"/>
-      <line num="66" count="1" type="stmt"/>
-      <line num="67" count="0" type="stmt"/>
-      <line num="68" count="0" type="stmt"/>
-      <line num="69" count="0" type="stmt"/>
+      <line num="49" count="0" type="stmt"/>
+      <line num="51" count="0" type="cond" truecount="0" falsecount="2"/>
+      <line num="54" count="0" type="stmt"/>
+      <line num="55" count="0" type="cond" truecount="0" falsecount="2"/>
+      <line num="58" count="0" type="cond" truecount="0" falsecount="2"/>
+      <line num="59" count="0" type="stmt"/>
+      <line num="69" count="1" type="stmt"/>
       <line num="70" count="0" type="stmt"/>
       <line num="71" count="0" type="stmt"/>
+      <line num="72" count="0" type="stmt"/>
       <line num="73" count="0" type="stmt"/>
-      <line num="77" count="1" type="stmt"/>
-      <line num="78" count="0" type="stmt"/>
+      <line num="74" count="0" type="stmt"/>
+      <line num="75" count="0" type="stmt"/>
       <line num="80" count="1" type="stmt"/>
+      <line num="81" count="1" type="stmt"/>
       <line num="82" count="1" type="stmt"/>
-      <line num="83" count="0" type="stmt"/>
+      <line num="84" count="1" type="stmt"/>
       <line num="86" count="1" type="stmt"/>
+      <line num="87" count="0" type="stmt"/>
+      <line num="90" count="1" type="stmt"/>
     </file>
   </project>
 </coverage>
