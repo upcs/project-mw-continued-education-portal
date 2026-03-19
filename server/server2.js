@@ -31,7 +31,7 @@ app.post('/login', (req, res) => {
 		});
 
 
-app.post('/signup', (req, res)=> {
+app.post('/signup', (req, res) => {
 	var body = req.body;
 	var name = body.name;
 	var email = body.email;
@@ -41,9 +41,10 @@ app.post('/signup', (req, res)=> {
 	var password = body.password;
 
         var query = `Select * from userdata where username = "${username}";`;
-	var query2 = `insert into userdata values ("${username}", "${password}");`;
-	var query3 = `insert into profile values ()`;
+	var query2 = `insert into userdata values ("${username}", "${password}")`;
+	var query3 = `insert into profile values ("${username}", "${name}", "${email}", "${whatsapp}", "${photo}")`;
 	var query4 = `insert into permissions values ()`;
+	var query5= `insert into userdata values ("hello", "hello");`
 	console.log(query);
 	dbms.dbquery(query, (err, reponse) => {
 	//error, username already exists
@@ -54,6 +55,7 @@ app.post('/signup', (req, res)=> {
 	if (err) {res.json({error : "db"}); return;}
 	else {
 	//happy path
+	dbms.dbquery(query3, (err, response) => {if (err) {console.log("err");}});
 	res.json({error : "none"});
 	}
 	}); // query 2 end
@@ -63,10 +65,35 @@ app.post('/signup', (req, res)=> {
 
 	});
 
-app.post('/profile', (req, res) => {});
 
-app.post('/myinfo', (req, res) => {});
+const profile = function (req, res) {
+var body = req.body;
+//console.log(req.body.username);
+var user = body.username;
+query = `select * from profile where username = \"${user}\";`;
+dbms.dbquery(query, (err, response) => {res.json(response);});
+};
+
+app.post('/profile', profile);
+//(req, res) => {
+//var body = req.body;
+//console.log(req.body.username);
+//var user = body.username;
+//query = `select * from profile where username = \"${user}\";`;
+//dbms.dbquery(query, (err, response) => {
+//res.json(response);
+//});
+//});
+
+
+const myinfo = function (req, res) {
+res.json({test : "true"});
+return;
+};
+app.post('/myinfo', myinfo);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+module.exports = { myinfo, profile };

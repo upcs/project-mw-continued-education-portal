@@ -1,14 +1,28 @@
 import './ProfilePage.css';
 import { Link } from 'react-router-dom';
 import $ from 'jquery';
+import React, { useState } from 'react';
+
 
 function ProfilePage() {
 
+  const [username, setUsername] = useState("");
+  const handleUsernameChange = (event) => {
+    setUsername(event.target.value);
+  };
+  const [name, setName] = useState("test");
+  const [email, setEmail] = useState("test");
+  const [whatsapp, setWhatsapp] = useState("test");
+  const [photo, setPhoto] = useState(null); // assuming photo is a file
+
+  const handleNameChange = (event) => setName(event.target.value);
+  const handleEmailChange = (event) => setEmail(event.target.value);
+  const handleWhatsappChange = (event) => setWhatsapp(event.target.value);
+  //const handlePhotoChange = (event) => setPhoto(event.target.files[0]);
+
 
   const profileButton = () => {
-    //TODO: replace this with $docuemtn get element search field val
-    var username = "temporary username";
-    // Make sure the username and password are not empty
+    // Make sure the username and is not empty
     if (!username) {
       alert("please enter a username");
       return;
@@ -21,7 +35,15 @@ function ProfilePage() {
         username: username,
       },
       function(data) {
-        alert(data.error);
+        if (data[0].name === undefined) {alert("data undefined");}
+	else {
+	//happy path
+	//alert(data);
+	setName(data[0].name);
+	setWhatsapp(data[0].whatsapp);
+	setEmail(data[0].email);
+	//setPhoto(data[0].photo);
+	}
       });
   };
 
@@ -43,11 +65,21 @@ function ProfilePage() {
                 
                 <h1>Profile</h1>
                 {/* Completion Bar */}
-	     <input type="password"></input>
+	<input className='usernameBar'
+        type="text"
+        value={username}
+        onChange={handleUsernameChange}
+        placeholder="Username"/>
+	
+	<button onClick={profileButton}>Search</button>
+	    
+
 
                 <div className="profile-info">
-                    <p><b>Name:</b> John Doe</p>
-                    <p><b>Email:</b> john.doe@example.com</p>
+                    <p><b>Name:</b>{name}</p>
+                    <p><b>Email:</b>{email}</p>
+	    	    <p><b>Whatsapp:</b>{whatsapp}</p>
+	    	    <p><b>Photo:</b>{photo}</p>
                 </div>
 
                 
