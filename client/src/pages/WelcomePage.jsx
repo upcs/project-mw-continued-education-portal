@@ -10,34 +10,32 @@ import { Link } from 'react-router-dom';
 function WelcomePage() {
   return (
     <div className="welcomePage">
-      
+
       <div className='uploadButton-container'>
-        <Link to = "/upload" className='uploadButton'>
-          <Button text = "Upload"/>
-        </Link>
-        <Link to = "/login" className="uploadButton">
-          <Button text = "Login"/>
-        </Link>
-	<Link to = "/signup" className="signupButton">
-	  <Button text = "Signup"/>
-	 </Link>
-	<Link to = "/profile" className="profileButton">
-	  <Button text = "Profile"/>
-	 </Link>
-        <Link to = "/module-view" className='moduleButton'>
-          <Button text = "Module"/>
+        <Link to="/profile" className='uploadButton'>
+          <Button text="Profile" />
         </Link>
 
+        <Link to="/login" className="uploadButton">
+          <Button text="Login" />
+        </Link>
+
+        <Link to="/signup" className="signupButton">
+          <Button text="Signup" />
+        </Link>
       </div>
 
-      <WelcomeMessage/>
-      <SearchBar/>
+      <div className="welcomeBody">
+        <WelcomeMessage />
+        <SearchBar />
 
-      <h1 id="forms">Forms</h1>
-      <FormButtons/>
+        <h1 id="forms">Forms</h1>
+        <FormButtons />
 
-      <h1 id="subjects">Subjects</h1>
-      <SubjectButtons/>
+        <h1 id="subjects">Subjects</h1>
+        <SubjectButtons />
+      </div>
+
     </div>
   );
 }

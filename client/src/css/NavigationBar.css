@@ -22,6 +22,16 @@
   cursor: pointer;
 }
 
+.green-btn {
+  border: 2px solid #9ca3af;
+  padding: 6px 16px;
+  border-radius: 8px;
+  background-color: #357a32;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+}
+
 .btn:hover {
   background-color: #f3f4f6;
 }
