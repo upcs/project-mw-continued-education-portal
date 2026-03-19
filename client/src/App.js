@@ -7,11 +7,10 @@ import ProgressTracker from './pages/ProgressTracker';
 import ModuleView from './pages/moduleView';
 import SearchResults from './pages/SearchResults';
 import Dashboard from './pages/DashboardPage';
-import ProfilePage from './pages/ProfilePage';
+import Profile from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import Login from './pages/login';
 import Signup from './pages/signup';
-import Profile from './pages/profile';
 
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 
@@ -27,7 +26,6 @@ function App()
           <Route path="/module-view" element={<ModuleView/>}/>
           <Route path="/results" element={<SearchResults/>}/>
           <Route path="/dashboard" element={<Dashboard/>}/>
-          <Route path="/profile" element={<ProfilePage/>}/>
           <Route path="/settings" element={<SettingsPage/>}/>
           <Route path="/login" element={<Login/>}/>
           <Route path="/signup" element={<Signup/>}/>
