@@ -10,8 +10,16 @@
   align-items: center;
   padding: 1rem 0;
   border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: 0.2s ease;
 }
 
+.enroll-row:hover {
+  background: #f7fbff
+}
+.enroll-row:active {
+  transform: scale(0.995);
+}
 .enroll-row__left {
   display: flex;
   gap: 1rem;

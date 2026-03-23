@@ -3,10 +3,11 @@ import FilterTabs from "../components/courses/FilterTabs";
 import CourseCard from "../components/courses/CourseCard";
 
 const courses = Array(8).fill({
-  title: "Lorem Ipsum mit sore de pas hala Madrid",
-  author: "Shams Tabrez",
-  lessons: 12,
-  quizzes: 7,
+  id: 1,
+  title: "Software Engineering",
+  author: "Hassinullah Niazy",
+  lessons: 10,
+  quizzes: 2,
 });
 
 export default function CourseCatalog() {
@@ -22,8 +23,8 @@ export default function CourseCatalog() {
       <FilterTabs />
 
       <div className="course-catalog__grid">
-        {courses.map((course, index) => (
-          <CourseCard key={index} {...course} />
+        {courses.map((course) => (
+          <CourseCard key={course.id} {...course} />
         ))}
       </div>
     </section>

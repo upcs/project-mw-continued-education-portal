@@ -1,7 +1,7 @@
 .app {
   display: flex;
   min-height: 100vh;
-  background: #f5f7fb; /* IMPORTANT */
+  background: #f5f7fb; /* Background-Important */
 }
 
 /* content area */
@@ -14,4 +14,22 @@
 /* main content */
 .app__main {
   padding: 1.5rem 2rem;
+}
+
+.page-head {
+  margin-bottom: 24px;
+  padding-top: 12px;
+}
+
+.page-title {
+  font-size: 2.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #0e2430;
+}
+
+.page-sub {
+  margin-top: 6px;
+  font-size: 0.875rem;
+  color: #7c7c7c;
 }

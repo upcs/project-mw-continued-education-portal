@@ -3,7 +3,9 @@ import "../css/topbar.css";
 
 export default function Topbar() {
   return (
+    
     <header className="topbar">
+      <h1 className="title" >UPLENDO LEARNING PLATFORM</h1>  
       <div className="topbar__search">
         <input
           className="topbar__input"

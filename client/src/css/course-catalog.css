@@ -1,27 +1,29 @@
 .course-catalog {
-  padding: 1.5rem;
+  padding-bottom: 2rem;
 }
 
 .course-catalog__header {
   margin-bottom: 1.5rem;
+  padding-top: 0.75rem;
 }
 
 .course-catalog__title {
-  font-size: 2rem;
+  font-size: 2.125rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
   color: #0e2430;
 }
 
 .course-catalog__breadcrumb {
   font-size: 0.875rem;
-  color: #8b8b8b;
-  margin-top: 0.25rem;
+  color: #8a8a8a;
+  margin-top: 0.35rem;
 }
 
 .course-filter {
   display: flex;
   gap: 0.75rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
 .course-filter__item {
@@ -40,6 +42,7 @@
 }
 
 .course-catalog__grid {
+  margin-top: 1.5rem;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;

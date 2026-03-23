@@ -1,5 +1,5 @@
 .sidebar {
-  width: 110px;
+  width: 140px;
   min-height: 100vh;
   background: #002b3a;
   color: #ffffff;
@@ -7,6 +7,11 @@
   flex-direction: column;
   align-items: center;
   padding: 1.5rem 0;
+}
+
+.UP-Logo {
+  width: 80px;
+  height: 80px;
 }
 
 .sidebar__logo {

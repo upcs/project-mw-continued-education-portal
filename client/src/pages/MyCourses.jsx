@@ -1,9 +1,10 @@
 import "../css/my-courses.css";
 import { useNavigate } from "react-router-dom";
-
+import EnrolledList from "../components/my-courses/EnrolledCourseList";
 
 export default function MyCourses() {
   const navigate = useNavigate();
+
   return (
     <section className="courses-page">
       <h1 className="courses-page__title">My Courses</h1>
@@ -39,66 +40,15 @@ export default function MyCourses() {
           <section className="courses-block">
             <div className="courses-block__head">
               <h2 className="courses-block__title">Enrolled Courses</h2>
-              <button className="catalog-btn" onClick={() => navigate("/catalog")}>COURSE CATALOG</button>
+              <button
+                className="catalog-btn"
+                onClick={() => navigate("/catalog")}
+              >
+                COURSE CATALOG
+              </button>
             </div>
 
-            <div className="enroll-list">
-              <div className="enroll-row">
-                <div className="enroll-row__icon enroll-row__icon--violet" />
-                <div className="enroll-row__body">
-                  <div className="enroll-row__title">Basic of English Language</div>
-                  <div className="enroll-row__label">Progress</div>
-                  <div className="enroll-row__track">
-                    <div className="enroll-row__fill enroll-row__fill--30" />
-                  </div>
-                </div>
-                <div className="enroll-row__meta">
-                  <span className="enroll-pill">2/10</span>
-                  <span className="enroll-pill enroll-pill--muted">3/5</span>
-                </div>
-                <div className="enroll-row__more">•••</div>
-              </div>
-
-              <div className="enroll-row">
-                <div className="enroll-row__icon enroll-row__icon--blue" />
-                <div className="enroll-row__body">
-                  <div className="enroll-row__title">Introduction the web development</div>
-                  <div className="enroll-row__label">Progress</div>
-                  <div className="enroll-row__track">
-                    <div className="enroll-row__fill enroll-row__fill--5" />
-                  </div>
-                </div>
-                <div className="enroll-row__meta">
-                  <span className="enroll-pill">0/10</span>
-                  <span className="enroll-pill enroll-pill--muted">0/0</span>
-                </div>
-                <div className="enroll-row__more">•••</div>
-              </div>
-
-              <div className="enroll-row">
-                <div className="enroll-row__icon enroll-row__icon--violet" />
-                <div className="enroll-row__body">
-                  <div className="enroll-row__title">Basic data-structure and algorithm</div>
-                  <div className="enroll-badge">Completed</div>
-                </div>
-                <div className="enroll-row__meta">
-                  <span className="cert-btn">View Certificate</span>
-                </div>
-                <div className="enroll-row__more">•••</div>
-              </div>
-
-              <div className="enroll-row">
-                <div className="enroll-row__icon enroll-row__icon--blue" />
-                <div className="enroll-row__body">
-                  <div className="enroll-row__title">Lorem ipsum codor le hala madrid</div>
-                  <span className="cert-btn">View Certificate</span>
-                </div>
-                <div className="enroll-row__meta">
-                  <span className="enroll-badge">Completed</span>
-                </div>
-                <div className="enroll-row__more">•••</div>
-              </div>
-            </div>
+            <EnrolledList />
           </section>
         </div>
 

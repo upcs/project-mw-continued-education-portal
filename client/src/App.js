@@ -7,7 +7,7 @@ import MyCourses from "./pages/MyCourses";
 import Discussion from "./pages/Discussion";
 import LiveEvents from "./pages/LiveEvents";
 import CourseDetails from "./pages/CourseDetails";
-import Prototypes from "./pages/Prototypes";
+import UploadCourse from "./pages/UploadCourse";
 
 function App() {
   return (
@@ -19,8 +19,8 @@ function App() {
           <Route path="/my-courses" element={<MyCourses />} />
           <Route path="/discussion" element={<Discussion />} />
           <Route path="/live" element={<LiveEvents />} />
-          <Route path="/course-details" element={<CourseDetails />} />
-          <Route path="/prototypes" element={<Prototypes />} />
+          <Route path="/course-details/:id" element={<CourseDetails />} />
+          <Route path="/upload" element={<UploadCourse />} />
         </Route>
       </Routes>
     </BrowserRouter>

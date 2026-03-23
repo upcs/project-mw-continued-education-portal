@@ -2,18 +2,18 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   GraduationCap,
-  Lightbulb,
   MessageSquare,
   Radio,
   BookOpen,
+  Upload,
 } from "lucide-react";
 import "../css/sidebar.css";
 
 const navItems = [
   { icon: LayoutDashboard, id: "dashboard", path: "/" },
   { icon: GraduationCap, id: "myCourses", path: "/my-courses" },
-  { icon: BookOpen, path: "/catalog" },
-  { icon: Lightbulb, id: "prototypes", path: "/prototypes" },
+  { icon: BookOpen, path: "/all-courses" },
+  { icon: Upload, id: "upload", path: "/upload" },
   { icon: MessageSquare, id: "discussion", path: "/discussion" },
   { icon: Radio, id: "live", path: "/live" },
 ];
@@ -21,7 +21,9 @@ const navItems = [
 export default function Sidebar() {
   return (
     <aside className="sidebar">
-      <div className="sidebar__logo">MOLP</div>
+      <div className="sidebar__logo">
+        <img className="UP-Logo" src="https://www.eduopinions.com/wp-content/uploads/2018/08/UniversityofPortland-logo-350x350.jpg" alt="" />
+      </div>
 
       <nav className="sidebar__nav">
         {navItems.map((item) => {
