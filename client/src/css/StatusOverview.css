@@ -1,0 +1,18 @@
+.status {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #eaeaea;
+}
+
+.status__item {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  border-right: 1px solid #eee;
+}
+
+.status__item:last-child {
+  border-right: none;
+}

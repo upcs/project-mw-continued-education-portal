@@ -1,0 +1,17 @@
+.app {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f7fb; /* IMPORTANT */
+}
+
+/* content area */
+.app__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* main content */
+.app__main {
+  padding: 1.5rem 2rem;
+}

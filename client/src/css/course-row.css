@@ -1,0 +1,40 @@
+.enrolled__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.enroll-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.enroll-row__left {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.enroll-row__icon {
+  width: 48px;
+  height: 48px;
+  background: #dcd6f7;
+  border-radius: 10px;
+}
+
+.enroll-row__progress {
+  width: 180px;
+  height: 6px;
+  background: #eee;
+  border-radius: 999px;
+  margin-top: 4px;
+}
+
+.enroll-row__bar {
+  width: 30%;
+  height: 100%;
+  background: #3b82f6;
+}
