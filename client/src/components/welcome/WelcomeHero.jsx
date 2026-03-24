@@ -52,8 +52,9 @@ export default function WelcomeHero() {
           </p>
 
           <form className="welcome-login__form" onSubmit={handleSubmit}>
-            <label className="welcome-login__label">Email</label>
+            <label className="welcome-login__label" htmlFor="email">Email</label>
             <input
+              id="email"
               className="welcome-login__input"
               type="email"
               name="email"
@@ -63,8 +64,9 @@ export default function WelcomeHero() {
               required
             />
 
-            <label className="welcome-login__label">Password</label>
+            <label className="welcome-login__label" htmlFor="password">Password</label>
             <input
+              id="password"
               className="welcome-login__input"
               type="password"
               name="password"
