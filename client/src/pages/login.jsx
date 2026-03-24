@@ -1,22 +1,3 @@
-//import React, { useState } from 'react';
-
-//function Login() {
-//return (
-//<div>
-//<p>Enter log-in info</p>
-//<input type="text"></input>
-//<input type="password"></input>
-//<button onClick={login_button}></button>
-//</div>
-//)
-//}
-
-//const login_button = () => {
-//alert("hello");
-//};
-
-//export default Login
-
 import React, { useState } from 'react';
 import './Login.css'
 import $ from 'jquery'; // Import jQuery
@@ -42,25 +23,18 @@ function Login() {
       alert("Please enter both username and password.");
       return;
     }
-
+	
     // Use $.post to send login data to the backend
     $.post(
-      'http://localhost:5000/login', // Backend URL
+     'http://cs341s26mwed.campus.up.edu:3000/login',
       {
-        username: username,
+	username: username,
         password: password
       },
-      (data, status) => {
-        if (status === 'success') {
-          alert('Login Successful');
-        } else {
-          alert('Login Failed');
-        }
-      }
-    ).fail((error) => {
-      console.error('Error logging in:', error);
-      alert('Error logging in, please try again later');
-    });
+      function(data) {
+	if (data.success) {alert("login");}
+	      else {alert("bad");}
+      });
   };
 
   return (
@@ -82,5 +56,7 @@ function Login() {
     </div>
   );
 }
+
+//post request here
 
 export default Login;

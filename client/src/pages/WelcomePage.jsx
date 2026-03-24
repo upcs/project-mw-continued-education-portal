@@ -18,6 +18,12 @@ function WelcomePage() {
         <Link to = "/login" className="uploadButton">
           <Button text = "Login"/>
         </Link>
+	<Link to = "/signup" className="signupButton">
+	  <Button text = "Signup"/>
+	 </Link>
+	<Link to = "/profile" className="profileButton">
+	  <Button text = "Profile"/>
+	 </Link>
         <Link to = "/module-view" className='moduleButton'>
           <Button text = "Module"/>
         </Link>

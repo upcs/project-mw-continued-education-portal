@@ -9,13 +9,14 @@
 exports.version = '0.0.1';
 
 
-var mysql = require('mysql'),
+var mysql = require('mysql2'),
     async = require('async');
 
-var host = "10.6.2.7";    //pdx0mysql00 IP address
-var database = "phamt27";  //database name
-var user = "phamt27";         //username (change to match your db)
-var password = "EFIHDKQQKSN";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
+var host = "localhost";
+//var host = "cs341s26mwed.campus.up.edu";    //pdx0mysql00 IP address
+var database = "malawi";  //database name
+var user = "admin2";         //username (change to match your db)
+var password = "123";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
 
 /**
  * dbquery
@@ -32,7 +33,7 @@ exports.dbquery = function(query_str, callback) {
 
     var dbclient;
     var results = null;
-    
+    //still function 
     async.waterfall([
 
         //Step 1: Connect to the database
@@ -51,14 +52,19 @@ exports.dbquery = function(query_str, callback) {
         //Step 2: Issue query
         function (results, callback) {
             console.log("\n** retrieving data");
-            dbclient.query(query_str, callback);
+            dbclient.query(query_str, function(err, rows, fields) {
+	    if (err) {return callback(err);}
+	    if (rows && rows.insertId != undefined) {return callback(null, rows, null);}
+	    return callback(null, rows, fields);
+	    });
+	    console.log(callback);
         },
-
         //Step 3: Collect results
         function (rows, fields, callback) {
             console.log("\n** dumping data:");
             results = rows;
             console.log("" + rows);
+	    console.log(callback);
             callback(null);
         }
 
