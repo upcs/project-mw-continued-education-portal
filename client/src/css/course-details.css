@@ -1,0 +1,131 @@
+.detail-page {
+  height: 100%;
+}
+
+.detail-page__layout {
+  display: grid;
+  grid-template-columns: 268px 1fr;
+  min-height: calc(100vh - 80px);
+}
+
+.detail-page__side {
+  border-right: 1px solid #ececec;
+  background: #f7f7f7;
+}
+
+.detail-page__main {
+  padding: 1rem 1.5rem 2rem;
+}
+
+.lesson-nav {
+  padding: 1.75rem 1rem;
+}
+
+.lesson-nav__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 2rem;
+  border: 0;
+  background: transparent;
+  color: #222222;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.lesson-nav__label {
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  color: #7c7c7c;
+}
+
+.lesson-nav__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lesson-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6b6b6b;
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lesson-item--active {
+  border-color: #39a0de;
+  background: #39a0de;
+  color: #ffffff;
+  box-shadow: 0 10px 20px rgba(57, 160, 222, 0.18);
+}
+
+.lesson-article__course {
+  font-size: 2.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #0e2430;
+}
+
+.lesson-article__title {
+  margin-top: 1rem;
+  font-size: 1.625rem;
+  color: #353535;
+}
+
+.lesson-article__sub {
+  margin-top: 2.75rem;
+  font-size: 1.625rem;
+  color: #353535;
+}
+
+.lesson-article__text {
+  max-width: 980px;
+  margin-top: 1.25rem;
+  font-size: 1rem;
+  line-height: 2;
+  color: #555555;
+}
+
+.lesson-article__media {
+  margin: 2rem auto 0;
+  border-radius: 6px;
+  background: #c7d0d8;
+}
+
+.lesson-article__media--small {
+  width: 390px;
+  height: 230px;
+}
+
+.lesson-article__media--wide {
+  width: 540px;
+  height: 230px;
+}
+
+.lesson-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2rem;
+}
+
+.lesson-pager__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 1.25rem;
+  border: 0;
+  background: #eaeaea;
+  color: #2e3550;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
