@@ -33,7 +33,7 @@ exports.dbquery = function(query_str, callback) {
 
     var dbclient;
     var results = null;
-    
+    //still function 
     async.waterfall([
 
         //Step 1: Connect to the database
@@ -52,14 +52,19 @@ exports.dbquery = function(query_str, callback) {
         //Step 2: Issue query
         function (results, callback) {
             console.log("\n** retrieving data");
-            dbclient.query(query_str, callback);
+            dbclient.query(query_str, function(err, rows, fields) {
+	    if (err) {return callback(err);}
+	    if (rows && rows.insertId != undefined) {return callback(null, rows, null);}
+	    return callback(null, rows, fields);
+	    });
+	    console.log(callback);
         },
-
         //Step 3: Collect results
         function (rows, fields, callback) {
             console.log("\n** dumping data:");
             results = rows;
             console.log("" + rows);
+	    console.log(callback);
             callback(null);
         }
 
