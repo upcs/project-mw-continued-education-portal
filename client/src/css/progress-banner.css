@@ -1,0 +1,30 @@
+.progress-banner__box {
+  background: linear-gradient(180deg, #a6c8e0, #c9a6e0);
+  border-radius: 14px;
+  padding: 2rem;
+  position: relative;
+}
+
+.progress-banner__bar {
+  height: 6px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 999px;
+}
+
+.progress-banner__fill {
+  width: 30%;
+  height: 100%;
+  background: #7c3aed;
+  border-radius: 999px;
+}
+
+.progress-banner__percent {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
