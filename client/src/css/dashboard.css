@@ -1,0 +1,453 @@
+.dashboard-page {
+  padding-bottom: 2rem;
+}
+
+.dashboard-page__header {
+  margin-bottom: 1.5rem;
+  padding-top: 0.75rem;
+}
+
+.dashboard-page__title {
+  font-size: 2.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #0e2430;
+}
+
+.dashboard-page__content {
+  display: grid;
+  grid-template-columns: 1fr 390px;
+  gap: 2.25rem;
+}
+
+.dashboard-page__main,
+.dashboard-page__sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-page__analytics {
+  display: grid;
+  grid-template-columns: 1fr 270px;
+  gap: 2rem;
+  margin-top: 1.25rem;
+}
+
+.dashboard-section__title {
+  margin-bottom: 0.9rem;
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #333333;
+  text-transform: uppercase;
+}
+
+.dashboard-section--courses {
+  margin-top: 3rem;
+}
+
+.dashboard-section--activity {
+  margin-top: 3.5rem;
+}
+
+.overview-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2rem;
+}
+
+.overview-stat-card {
+  background: #ffffff;
+  border: 1px solid #e4e4e4;
+  border-radius: 18px;
+  padding: 1rem;
+}
+
+.overview-stat-card__label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.overview-stat-card__icon-wrap {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #39a0de;
+  color: white;
+}
+
+.overview-stat-card__label {
+  font-size: 0.75rem;
+  color: #5f5f5f;
+}
+
+.overview-stat-card__value {
+  font-size: 2rem;
+  line-height: 1;
+  color: #4a4a4a;
+}
+
+.study-statistics-card,
+.progress-summary-card,
+.live-event-card {
+  background: #ffffff;
+  border: 1px solid #e4e4e4;
+  border-radius: 18px;
+}
+
+.study-statistics-card {
+  padding: 1rem;
+}
+
+.study-statistics-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.study-statistics-card__title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #666666;
+  text-transform: uppercase;
+}
+
+.study-statistics-card__period-toggle {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: #888888;
+}
+
+.study-statistics-card__period {
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.study-statistics-card__period--active {
+  background: #ececec;
+}
+
+.study-statistics-card__chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  height: 240px;
+  padding-top: 0.75rem;
+}
+
+.study-statistics-card__column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.study-statistics-card__bar-track {
+  width: 100%;
+  height: 180px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.study-statistics-card__bar {
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  background: #79b6db;
+}
+
+.study-statistics-card__bar--active {
+  background: #39a0de;
+}
+
+.study-statistics-card__bar--muted {
+  background: #bdd8ea;
+}
+
+.study-statistics-card__day {
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+  color: #7b7b7b;
+}
+
+.progress-summary-card {
+  padding: 1.5rem;
+}
+
+.progress-summary-card__title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #666666;
+  text-transform: uppercase;
+}
+
+.progress-summary-card__ring-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.progress-summary-card__ring {
+  width: 190px;
+  height: 190px;
+  border-radius: 999px;
+  padding: 8px;
+  background:
+    conic-gradient(#39a0de 0 32%, #0d3042 32% 45%, #39a0de 45% 78%, #ececec 78% 100%);
+}
+
+.progress-summary-card__inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-summary-card__primary-value {
+  font-size: 2.625rem;
+  font-weight: 500;
+  color: #0e2430;
+}
+
+.progress-summary-card__secondary-value {
+  margin-top: 0.35rem;
+  font-size: 1.125rem;
+  color: #39a0de;
+}
+
+.progress-summary-card__legend {
+  display: flex;
+  justify-content: center;
+  gap: 2.5rem;
+  margin-top: 2rem;
+  font-size: 0.875rem;
+  color: #707070;
+}
+
+.progress-summary-card__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progress-summary-card__legend-dot {
+  width: 4px;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.progress-summary-card__legend-dot--dark {
+  background: #0d3042;
+}
+
+.progress-summary-card__legend-dot--blue {
+  background: #39a0de;
+}
+
+.dashboard-course-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-course-card {
+  border: 1px solid #e2e2e2;
+  border-radius: 18px;
+  padding: 1.5rem;
+}
+
+.dashboard-course-card--lavender {
+  background: #d7c2f3;
+}
+
+.dashboard-course-card--blue {
+  background: #c8d8f1;
+}
+
+.dashboard-course-card--cyan {
+  background: #c8e5f0;
+}
+
+.dashboard-course-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  color: #535353;
+}
+
+.dashboard-course-card__title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #3f3f3f;
+}
+
+.dashboard-course-card__author {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: #7a7a7a;
+}
+
+.dashboard-course-card__progress-visual {
+  display: flex;
+  justify-content: center;
+  margin-top: 2.5rem;
+}
+
+.dashboard-course-card__progress {
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  padding: 16px;
+  background: conic-gradient(#b7d7f3 0 62%, #b7d7f3 62% 100%);
+}
+
+.dashboard-course-card__progress--purple {
+  background: conic-gradient(#9139f6 0 38%, #b78de7 38% 100%);
+}
+
+.dashboard-course-card__progress--blue {
+  background: conic-gradient(#5893e1 0 38%, #a8c8ed 38% 100%);
+}
+
+.dashboard-course-card__progress--cyan {
+  background: conic-gradient(#61b9dc 0 38%, #a6d8e9 38% 100%);
+}
+
+.dashboard-course-card__progress-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.live-event-card {
+  display: grid;
+  grid-template-columns: 54px 1fr auto;
+  gap: 1.25rem;
+  align-items: center;
+  padding: 1rem;
+  margin-top: 0.75rem;
+}
+
+.live-event-card__brand {
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #032a38;
+  color: white;
+  font-size: 1.25rem;
+}
+
+.live-event-card__title {
+  font-size: 1rem;
+  line-height: 1.35;
+  color: #4a4a4a;
+}
+
+.live-event-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #8b8b8b;
+}
+
+.live-event-card__status {
+  text-align: right;
+  color: #0b2533;
+}
+
+.live-event-card__status-text {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 0.875rem;
+  color: #ff3b30;
+}
+
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 1.25rem;
+}
+
+.activity-feed__item {
+  display: flex;
+  gap: 1rem;
+}
+
+.activity-feed__line {
+  width: 4px;
+  border-radius: 999px;
+  background: #39a0de;
+}
+
+.activity-feed__avatar {
+  width: 48px;
+  height: 48px;
+  margin-top: 0.25rem;
+}
+
+.activity-feed__body {
+  min-width: 0;
+}
+
+.activity-feed__heading {
+  font-size: 1.125rem;
+  color: #4a4a4a;
+}
+
+.activity-feed__title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #383838;
+}
+
+.activity-feed__description {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #8b8b8b;
+}
+
+.avatar {
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar__fallback {
+  font-size: 0.75rem;
+  color: #4b5563;
+}

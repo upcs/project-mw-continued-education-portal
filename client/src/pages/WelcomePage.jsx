@@ -15,14 +15,6 @@ function WelcomePage() {
         <Link to="/profile" className='uploadButton'>
           <Button text="Profile" />
         </Link>
-
-        <Link to="/login" className="uploadButton">
-          <Button text="Login" />
-        </Link>
-
-        <Link to="/signup" className="signupButton">
-          <Button text="Signup" />
-        </Link>
       </div>
 
       <div className="welcomeBody">
