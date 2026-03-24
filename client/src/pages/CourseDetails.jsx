@@ -9,6 +9,7 @@ export default function CourseDetails() {
   
 return (
     <section className="detail-page">
+      <p style={{ display: "none" }}>Course ID: {id}</p>
       <div className="detail-page__layout">
         <aside className="detail-page__side">
           <LessonNav />

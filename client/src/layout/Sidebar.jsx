@@ -10,9 +10,9 @@ import {
 import "../css/sidebar.css";
 
 const navItems = [
-  { icon: LayoutDashboard, id: "dashboard", path: "/" },
+  { icon: LayoutDashboard, id: "dashboard", path: "/dashboard" },
   { icon: GraduationCap, id: "myCourses", path: "/my-courses" },
-  { icon: BookOpen, path: "/all-courses" },
+  { icon: BookOpen, id: "allCourses", path: "/catalog" },
   { icon: Upload, id: "upload", path: "/upload" },
   { icon: MessageSquare, id: "discussion", path: "/discussion" },
   { icon: Radio, id: "live", path: "/live" },
