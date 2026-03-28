@@ -7,6 +7,7 @@ export default function WelcomeHero() {
     email: "",
     password: "",
   });
+  const [error, setError] = useState("");
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -17,21 +18,44 @@ export default function WelcomeHero() {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setError("");
 
-    localStorage.setItem("isAuthenticated", "true");
-    navigate("/dashboard");
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+        }),
+      });
+
+      const data = await response.json();
+      console.log("LOGIN RESPONSE:", data);
+
+      if (data.success === true) {
+        localStorage.setItem("isAuthenticated", "true");
+        localStorage.setItem("email", form.email);
+        navigate("/dashboard");
+      } else {
+        setError("Invalid email or password");
+      }
+    } catch (err) {
+      console.error("LOGIN ERROR:", err);
+      setError("Server error. Please try again.");
+    }
   };
 
   return (
     <section className="welcome-hero" id="home">
       <div className="welcome-hero__content">
-
         <h1 className="welcome-hero__title">
           WELCOME
           <br />
-          
         </h1>
 
         <p className="welcome-hero__text">
@@ -75,6 +99,8 @@ export default function WelcomeHero() {
               placeholder="Enter your password"
               required
             />
+
+            {error && <p className="welcome-login__error">{error}</p>}
 
             <button type="submit" className="welcome-login__submit">
               Login

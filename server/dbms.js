@@ -1,8 +1,7 @@
 /**
  * dbms.js
  *
- * This file contains functions for accessing the MySQL database
- * which contains the Cheesecake order data.
+ * This file contains functions for accessing the MySQL database.
  *
  */
 
@@ -12,11 +11,11 @@ exports.version = '0.0.1';
 var mysql = require('mysql2'),
     async = require('async');
 
-var host = "localhost";
+var host = "pdx0mysql00.campus.up.edu";
 //var host = "cs341s26mwed.campus.up.edu";    //pdx0mysql00 IP address
-var database = "malawi";  //database name
-var user = "admin2";         //username (change to match your db)
-var password = "123";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
+var database = "cs341s26mwed";  //database name
+var user = "cs341s26mwed";         //username (change to match your db)
+var password = "UH(alVh_D1PR1We-";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
 
 /**
  * dbquery
