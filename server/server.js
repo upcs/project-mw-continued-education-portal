@@ -34,6 +34,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+function extractYouTubeId(url = "") {
+  const match =
+    url.match(/[?&]v=([^&]+)/) ||
+    url.match(/youtu\.be\/([^?&]+)/) ||
+    url.match(/\/shorts\/([^?&]+)/);
+  return match ? match[1] : "";
+}
+
 
 app.get("/api/health", (req, res) => {
   res.json({ message: "API is running" });
@@ -202,6 +210,79 @@ app.post("/api/profile/upload-photo", upload.single("photo"), (req, res) => {
 app.post("/api/myinfo", (req, res) => {
   res.json({ test: "true" });
 });
+
+
+app.get("/api/resources/search", async (req, res) => {
+  const { q = "", source = "google" } = req.query;
+
+  if (!q.trim()) {
+    return res.json({ success: true, data: [] });
+  }
+
+  if (!process.env.SERPAPI_KEY) {
+    return res.status(500).json({
+      success: false,
+      data: [],
+      message: "SERPAPI_KEY is missing in .env",
+    });
+  }
+
+  try {
+    const params = new URLSearchParams({
+      api_key: process.env.SERPAPI_KEY,
+      engine: source === "youtube" ? "youtube" : "google",
+    });
+
+    if (source === "youtube") {
+      params.set("search_query", q);
+    } else {
+      params.set("q", q);
+    }
+
+    const response = await fetch(
+      `https://serpapi.com/search.json?${params.toString()}`
+    );
+
+    const data = await response.json();
+    console.log("SERP RAW:", data);
+
+    let results = [];
+
+    if (source === "youtube") {
+      results = (data.video_results || []).map((item, index) => ({
+        id: item.position || index + 1,
+        title: item.title || "",
+        link: item.link || "",
+        thumbnail: item.thumbnail?.static || item.thumbnail || "",
+        channel: item.channel?.name || "",
+        published: item.published_date || "",
+        duration: item.length || "",
+        videoId: extractYouTubeId(item.link || ""),
+        type: "youtube",
+      }));
+    } else {
+      results = (data.organic_results || []).map((item, index) => ({
+        id: item.position || index + 1,
+        title: item.title || "",
+        link: item.link || "",
+        snippet: item.snippet || "",
+        source: item.source || "",
+        thumbnail: item.thumbnail || "",
+        type: "google",
+      }));
+    }
+
+    return res.json({ success: true, data: results });
+  } catch (error) {
+    console.error("SERP SEARCH ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      data: [],
+      message: "Search failed",
+    });
+  }
+});
+
 
 ////////////////////////////
 
