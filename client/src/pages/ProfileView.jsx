@@ -17,11 +17,14 @@ export default function ProfileView() {
     newPassword: "",
   });
 
+  const [originalProfile, setOriginalProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
     const email = localStorage.getItem("email");
@@ -44,8 +47,7 @@ export default function ProfileView() {
         if (Array.isArray(data) && data.length > 0) {
           const user = data[0];
 
-          setProfile((prev) => ({
-            ...prev,
+          const loadedProfile = {
             photo: user.photo || "",
             fullname: user.fullname || "",
             role: user.role || "",
@@ -53,7 +55,12 @@ export default function ProfileView() {
             whatsapp: user.whatsapp || "",
             organization: user.organization || "",
             specialization: user.specialization || "",
-          }));
+            oldPassword: "",
+            newPassword: "",
+          };
+
+          setProfile(loadedProfile);
+          setOriginalProfile(loadedProfile);
 
           localStorage.setItem("name", user.fullname || "");
           localStorage.setItem("photo", user.photo || "");
@@ -81,21 +88,37 @@ export default function ProfileView() {
     }));
   };
 
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handlePhotoUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
 
-    const imageUrl = URL.createObjectURL(file);
+  setMessage("");
+  setError("");
 
-    setProfile((prev) => ({
-      ...prev,
-      photo: imageUrl,
-    }));
+  try {
+    const formData = new FormData();
+    formData.append("photo", file);
 
-    setMessage("");
-    setError("");
-  };
+    const response = await fetch("http://localhost:5000/api/profile/upload-photo", {
+      method: "POST",
+      body: formData,
+    });
 
+    const data = await response.json();
+
+    if (data.success === true) {
+      setProfile((prev) => ({
+        ...prev,
+        photo: data.photoUrl,
+      }));
+    } else {
+      setError("Failed to upload photo.");
+    }
+  } catch (err) {
+    console.error("PHOTO UPLOAD ERROR:", err);
+    setError("Server error while uploading photo.");
+  }
+};
   const handleRemovePhoto = () => {
     setProfile((prev) => ({
       ...prev,
@@ -105,8 +128,29 @@ export default function ProfileView() {
     setError("");
   };
 
+  const handleCancelEdit = () => {
+    if (originalProfile) {
+      setProfile({
+        ...originalProfile,
+        oldPassword: "",
+        newPassword: "",
+      });
+    }
+    setIsEditing(false);
+    setMessage("");
+    setError("");
+  };
+
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+
+    if (!isEditing) {
+      setIsEditing(true);
+      setMessage("");
+      setError("");
+      return;
+    }
+
     setSaving(true);
     setMessage("");
     setError("");
@@ -131,11 +175,26 @@ export default function ProfileView() {
       const data = await response.json();
 
       if (data.success === true) {
+        const savedProfile = {
+          ...profile,
+          oldPassword: "",
+          newPassword: "",
+        };
+
+        setOriginalProfile(savedProfile);
+        setProfile(savedProfile);
+
         localStorage.setItem("name", profile.fullname || "");
         localStorage.setItem("photo", profile.photo || "");
         localStorage.setItem("email", profile.email || "");
 
         setMessage("Profile updated successfully.");
+        setShowPrompt(true);
+        setIsEditing(false);
+
+        setTimeout(() => {
+          setShowPrompt(false);
+        }, 2500);
       } else {
         setError("Failed to update profile.");
       }
@@ -204,6 +263,18 @@ export default function ProfileView() {
 
   return (
     <main className="profile-view">
+      {showPrompt && (
+        <div className="profile-success-toast">
+          <div className="profile-success-toast__icon">✓</div>
+          <div>
+            <p className="profile-success-toast__title">Changes Saved</p>
+            <p className="profile-success-toast__text">
+              Your profile has been updated successfully.
+            </p>
+          </div>
+        </div>
+      )}
+
       <form className="profile-view__grid" onSubmit={handleSaveProfile}>
         <section className="profile-card profile-card--left">
           <h2 className="profile-card__title">Account Management</h2>
@@ -218,24 +289,28 @@ export default function ProfileView() {
                   e.currentTarget.src = defaultPhoto;
                 }}
               />
-              <button
-                type="button"
-                className="profile-photo-card__remove"
-                onClick={handleRemovePhoto}
-              >
-                ×
-              </button>
+              {isEditing && (
+                <button
+                  type="button"
+                  className="profile-photo-card__remove"
+                  onClick={handleRemovePhoto}
+                >
+                  ×
+                </button>
+              )}
             </div>
 
-            <label className="profile-photo-card__upload">
-              Upload Photo
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                hidden
-              />
-            </label>
+            {isEditing && (
+              <label className="profile-photo-card__upload">
+                Upload Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  hidden
+                />
+              </label>
+            )}
           </div>
 
           <div className="profile-password-box">
@@ -291,6 +366,7 @@ export default function ProfileView() {
                   onChange={handleChange}
                   className="profile-field__input"
                   placeholder="Enter full name"
+                  disabled={!isEditing}
                 />
               </label>
 
@@ -301,6 +377,7 @@ export default function ProfileView() {
                   value={profile.role}
                   onChange={handleChange}
                   className="profile-field__input"
+                  disabled={!isEditing}
                 >
                   <option value="">Select role</option>
                   <option value="Student">Student</option>
@@ -319,6 +396,7 @@ export default function ProfileView() {
                   onChange={handleChange}
                   className="profile-field__input"
                   placeholder="Enter email"
+                  disabled={!isEditing}
                 />
               </label>
 
@@ -331,6 +409,7 @@ export default function ProfileView() {
                   onChange={handleChange}
                   className="profile-field__input"
                   placeholder="Enter WhatsApp number"
+                  disabled={!isEditing}
                 />
               </label>
 
@@ -343,6 +422,7 @@ export default function ProfileView() {
                   onChange={handleChange}
                   className="profile-field__input"
                   placeholder="Enter organization"
+                  disabled={!isEditing}
                 />
               </label>
 
@@ -355,18 +435,29 @@ export default function ProfileView() {
                   onChange={handleChange}
                   className="profile-field__input"
                   placeholder="Enter specialization"
+                  disabled={!isEditing}
                 />
               </label>
             </div>
           </div>
 
           <div className="profile-actions">
+            {isEditing && (
+              <button
+                type="button"
+                className="profile-btn profile-btn--ghost"
+                onClick={handleCancelEdit}
+              >
+                Cancel
+              </button>
+            )}
+
             <button
               type="submit"
               className="profile-btn profile-btn--primary"
               disabled={saving}
             >
-              {saving ? "Saving..." : "Save Profile"}
+              {saving ? "Saving..." : isEditing ? "Save Changes" : "Edit Profile"}
             </button>
           </div>
         </section>

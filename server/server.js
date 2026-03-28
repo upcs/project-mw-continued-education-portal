@@ -4,6 +4,8 @@ const cors = require("cors");
 const path = require("path");
 const dbms = require("./dbms.js");
 const bcrypt = require("bcryptjs")
+const multer = require("multer");
+const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -11,6 +13,27 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+const uploadsDir = path.join(__dirname, "uploads");
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const safeName = file.originalname.replace(/\s+/g, "-");
+    cb(null, `${uniqueSuffix}-${safeName}`);
+  },
+});
+
+const upload = multer({ storage });
+
 
 app.get("/api/health", (req, res) => {
   res.json({ message: "API is running" });
@@ -19,57 +42,96 @@ app.get("/api/health", (req, res) => {
 app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body;
 
-  const query = `SELECT * FROM users WHERE email="${email}" AND password="${password}";`;
+  const query = `SELECT * FROM users WHERE email="${email}";`;
 
-  dbms.dbquery(query, (err, response) => {
-    console.log("LOGIN email:", email);
-    console.log("LOGIN password:", password);
-    console.log("LOGIN DB response:", response);
-
+  dbms.dbquery(query, async (err, response) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ success: false });
     }
 
-    if (response && response.length > 0) {
-      return res.json({ success: true });
+    if (!response || response.length === 0) {
+      return res.json({ success: false });
     }
 
-    return res.json({ success: false });
+    const user = response[0];
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (isMatch) {
+      return res.json({ success: true });
+    } else {
+      return res.json({ success: false });
+    }
+  });
+});
+
+app.post("/api/profile/change-password", (req, res) => {
+  const { email, oldPassword, newPassword } = req.body;
+
+  const query = `SELECT * FROM users WHERE email="${email}";`;
+
+  dbms.dbquery(query, async (err, response) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false });
+    }
+
+    if (!response || response.length === 0) {
+      return res.json({ success: false, message: "User not found" });
+    }
+
+    const user = response[0];
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+
+    if (!isMatch) {
+      return res.json({
+        success: false,
+        message: "Old password is incorrect",
+      });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    const updateQuery = `UPDATE users SET password="${hashedNewPassword}" WHERE email="${email}";`;
+
+    dbms.dbquery(updateQuery, (err2) => {
+      if (err2) {
+        console.error(err2);
+        return res.status(500).json({ success: false });
+      }
+
+      return res.json({
+        success: true,
+        message: "Password updated successfully",
+      });
+    });
   });
 });
 
 
-app.post("/api/auth/signup", (req, res) => {
-  const { name, email, whatsapp, photo, username, password } = req.body;
 
-  const query = `Select * from userdata where username = "${username}";`;
-  const query2 = `insert into userdata values ("${username}", "${password}")`;
-  const query3 = `insert into profile values ("${username}", "${name}", "${email}", "${whatsapp}", "${photo}")`;
+app.post("/api/auth/signup", async (req, res) => {
+  const { email, password } = req.body;
 
-  dbms.dbquery(query, (err, response) => {
-    if (err) {
-      return res.status(500).json({ error: "db" });
-    }
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    if (response[0] !== undefined) {
-      return res.json({ error: "username" });
-    }
+    const query = `INSERT INTO users (email, password) VALUES ("${email}", "${hashedPassword}");`;
 
-    dbms.dbquery(query2, (err2) => {
-      if (err2) {
-        return res.json({ error: "db" });
+    dbms.dbquery(query, (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ success: false });
       }
 
-      dbms.dbquery(query3, (err3) => {
-        if (err3) {
-          return res.json({ error: "db" });
-        }
-
-        return res.json({ error: "none" });
-      });
+      return res.json({ success: true });
     });
-  });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false });
+  }
 });
 
 app.post("/api/profile", (req, res) => {
@@ -119,6 +181,23 @@ app.post("/api/profile/update", (req, res) => {
   });
 });
 
+app.post("/api/profile/upload-photo", upload.single("photo"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: "No file uploaded.",
+    });
+  }
+
+  const photoUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`;
+
+  return res.json({
+    success: true,
+    photoUrl,
+  });
+});
+
+
 
 app.post("/api/myinfo", (req, res) => {
   res.json({ test: "true" });
@@ -153,10 +232,10 @@ app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, "../client/build", "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+if (require.main === module){
+    app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+   });
+}
 
-
-
-module.exports = { app };
+module.exports = app;

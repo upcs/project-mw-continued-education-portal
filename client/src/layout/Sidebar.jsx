@@ -35,7 +35,8 @@ export default function Sidebar() {
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("email");
     navigate("/");
   };
 
