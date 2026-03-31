@@ -10,6 +10,7 @@ import LiveEvents from "./pages/LiveEvents";
 import CourseDetails from "./pages/CourseDetails";
 import UploadCourse from "./pages/UploadCourse";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import ProfileView from "./pages/ProfileView";
 
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
           <Route path="/live" element={<LiveEvents />} />
           <Route path="/course-details/:id" element={<CourseDetails />} />
           <Route path="/upload" element={<UploadCourse />} />
+          <Route path="/profile" element={<ProfileView />} />
           
         </Route>
       </Routes>

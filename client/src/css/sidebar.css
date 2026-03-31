@@ -7,6 +7,7 @@
   flex-direction: column;
   align-items: center;
   padding: 1.5rem 0;
+  position: relative;
 }
 
 .UP-Logo {
@@ -49,13 +50,96 @@
   box-shadow: 0 8px 20px rgba(57, 160, 222, 0.25);
 }
 
-.sidebar__profile {
+.sidebar__profileWrapper {
+  margin-top: auto;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.sidebar__profileButton {
   width: 42px;
   height: 42px;
-  border-radius: 999px;
-  background: #b25ad9;
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.sidebar__profileImage {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #d946ef;
+  display: block;
+}
+
+.sidebar__profileMenu {
+  position: absolute;
+  bottom: 56px;
+  left: 0;
+  width: 210px;
+  background: #05293d;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  color: #fff;
+  z-index: 100;
+}
+
+.sidebar__menuItem {
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  padding: 10px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar__menuItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar__menuDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 10px 0;
+}
+
+.sidebar__menuUser {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.sidebar__menuAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.sidebar__menuUserText {
+  min-width: 0;
+}
+
+.sidebar__menuName {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.sidebar__menuEmail {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #c7d5dd;
+  word-break: break-word;
 }

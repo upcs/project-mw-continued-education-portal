@@ -8,6 +8,7 @@ export default function Login2() {
     email: "",
     password: "",
   });
+  const [error, setError] = useState("");
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -18,18 +19,45 @@ export default function Login2() {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    console.log("SUBMIT CLICKED");
+    setError("");
 
-    // temporary front-end auth
-    localStorage.setItem("isAuthenticated", "true");
-    navigate("/dashboard");
+    try {
+      console.log("ABOUT TO FETCH", form);
+
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+        }),
+      });
+
+      const data = await response.json();
+      console.log("LOGIN RESPONSE: ", data);
+
+      if (data.success === true) {
+        localStorage.setItem("isAuthenticated", "true");
+        localStorage.setItem("email", form.email);
+        navigate("/dashboard");
+      } else {
+        setError("Invalid email or password");
+      }
+    } catch (err) {
+      console.error("LOGIN ERROR:", err);
+      setError("Server error. Please try again.");
+    }
   };
 
   return (
     <main className="login-page">
       <div className="login-card">
-        <h1 className="login-card__title">Login</h1>
+        <h1 className="login-card__title">Login TEST 123</h1>
         <p className="login-card__sub">Access your learning platform</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
@@ -54,6 +82,8 @@ export default function Login2() {
             placeholder="Enter your password"
             required
           />
+
+          {error && <p className="login-form__error">{error}</p>}
 
           <button type="submit" className="login-form__button">
             Login
