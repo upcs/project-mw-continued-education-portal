@@ -61,11 +61,13 @@ app.post("/api/auth/login", (req, res) => {
     if (!response || response.length === 0) {
       return res.json({ success: false });
     }
+   
 
     const user = response[0];
+  //  const hashedNewPassword = await bcrypt.hash(user.password);
+    const isMatch = await bcrypt.compare(user.email, user.password);
 
-    const isMatch = await bcrypt.compare(password, user.password);
-
+     console.log(user.email, user.password);
     if (isMatch) {
       return res.json({ success: true });
     } else {
