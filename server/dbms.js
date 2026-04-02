@@ -1,88 +1,78 @@
 /**
  * dbms.js
  *
- * This file contains functions for accessing the MySQL database.
- *
+ * Database helper with parameterized query support.
  */
 
-exports.version = '0.0.1';
+exports.version = "0.0.2";
 
+const mysql = require("mysql2");
+const async = require("async");
 
-var mysql = require('mysql2'),
-    async = require('async');
+const host = "pdx0mysql00.campus.up.edu";
+const database = "cs341s26mwed";
+const user = "cs341s26mwed";
+const password = "UH(alVh_D1PR1We-";
 
-//var host = "localhost";
-var host = "pdx0mysql00.campus.up.edu";
-//var host = "cs341s26mwed.campus.up.edu";    //pdx0mysql00 IP address
-var database = "cs341s26mwed";  //database name
-var user = "cs341s26mwed";         //username (change to match your db)
-var password = "UH(alVh_D1PR1We-";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
+exports.dbquery = function (queryStr, params, callback) {
+  let dbclient;
+  let results = null;
 
-/**
- * dbquery
- *
- * performs a given SQL query on the database and returns the results
- * to the caller
- *
- * @param query     the SQL query to perform (e.g., "SELECT * FROM ...")
- * @param callback  the callback function to call with two values
- *                   error - (or 'false' if none)
- *                   results - as given by the mysql client
- */
-exports.dbquery = function(query_str, callback) {
+  if (typeof params === "function") {
+    callback = params;
+    params = [];
+  }
 
-    var dbclient;
-    var results = null;
-    //still function 
-    async.waterfall([
+  async.waterfall(
+    [
+      function (next) {
+        console.log("\n** creating connection.");
+        dbclient = mysql.createConnection({
+          host,
+          user,
+          password,
+          database,
+        });
 
-        //Step 1: Connect to the database
-        function (callback) {
-            console.log("\n** creating connection.");
-            dbclient = mysql.createConnection({
-                host: host,
-                user: user,
-                password: password,
-                database: database,
-            });
+        dbclient.connect(next);
+      },
 
-            dbclient.connect(callback);
-        },
+      function (_ignored, next) {
+        console.log("\n** retrieving data");
 
-        //Step 2: Issue query
-        function (results, callback) {
-            console.log("\n** retrieving data");
-            dbclient.query(query_str, function(err, rows, fields) {
-	    if (err) {return callback(err);}
-	    if (rows && rows.insertId != undefined) {return callback(null, rows, null);}
-	    return callback(null, rows, fields);
-	    });
-	    console.log(callback);
-        },
-        //Step 3: Collect results
-        function (rows, fields, callback) {
-            console.log("\n** dumping data:");
-            results = rows;
-            console.log("" + rows);
-	    console.log(callback);
-            callback(null);
-        }
+        dbclient.query(queryStr, params, function (err, rows, fields) {
+          if (err) {
+            return next(err);
+          }
 
+          if (rows && rows.insertId !== undefined) {
+            return next(null, rows, null);
+          }
+
+          return next(null, rows, fields);
+        });
+      },
+
+      function (rows, fields, next) {
+        console.log("\n** dumping data:");
+        results = rows;
+        console.log(rows);
+        next(null);
+      },
     ],
-    // waterfall cleanup function
-    function (err, res) {
-        if (err) {
-            console.log("Database query failed.  sad");
-            console.log(err);
-            callback(err, null);
-        } else {
-            console.log("Database query completed.");
-            callback(false, results);
-        }
-
-        //close connection to database
+    function (err) {
+      if (dbclient) {
         dbclient.end();
+      }
 
-    });
+      if (err) {
+        console.log("Database query failed.");
+        console.log(err);
+        return callback(err, null);
+      }
 
-}//function dbquery
+      console.log("Database query completed.");
+      return callback(false, results);
+    }
+  );
+};

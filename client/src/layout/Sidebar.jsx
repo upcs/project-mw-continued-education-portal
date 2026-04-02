@@ -115,8 +115,8 @@ export default function Sidebar() {
                 alt={user.name}
                 className="sidebar__menuAvatar"
                 onError={(e) => {
-                  e.currentTarget.src = 
-                    "https://via.placeholder.com/80x80.png?text=User"
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/images/default-avatar.png"
                 }}
               />
               <div className="sidebar__menuUserText">
@@ -138,8 +138,8 @@ export default function Sidebar() {
             alt={user.name}
             className="sidebar__profileImage"
             onError={(e) => {
-              e.currentTarget.src = 
-                "https://via.placeholder.com/80x80.png?text=User";
+              e.currentTarget.onerror = null; // Null Image
+              e.currentTarget.src = "/images/default-avatar.png";
             }}
           />
         </button>

@@ -8,16 +8,30 @@ export default function CourseCard({
   author,
   lessons,
   quizzes,
+  thumbnail,
 }) {
   const navigate = useNavigate();
+
   return (
-    <article className="course-card"> 
-      <div 
-        className="course-card__image"
+    <article className="course-card">
+      <div
+        className="course-card__image-wrap"
         onClick={() => navigate(`/course-details/${id}`)}
         style={{ cursor: "pointer" }}
       >
-        <div className="course-card__badge">Lorem Ipsum</div>
+        {thumbnail ? (
+          <img
+            src={thumbnail}
+            alt={title}
+            className="course-card__image"
+          />
+        ) : (
+          <div className="course-card__image course-card__image--placeholder">
+            No Cover
+          </div>
+        )}
+
+        <div className="course-card__badge">Course</div>
       </div>
 
       <div className="course-card__body">

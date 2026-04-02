@@ -1,30 +1,44 @@
-import EnrolledCourseRow from "./EnrolledCourseRow";
+import { useNavigate } from "react-router-dom";
 
-export default function EnrolledList() {
-  const courses = Array.from({ length: 8 }, (_, index) => ({
-  id: index + 1,
-  title: `Software Engineering ${index + 1}`,
-  author: "Hassinullah Niazy",
-  progress: 30,
-  lessons: `10`,
-  quizzes: `2`,
-}));
+export default function EnrolledCourseList({ courses = [] }) {
+  const navigate = useNavigate();
+
+  if (!courses.length) {
+    return <p>No enrolled courses found.</p>;
+  }
 
   return (
-    <div className="enrolled">
-    
-      <div className="enrolled__list">
-        {courses.map((course) => (
-          <EnrolledCourseRow
+    <div className="enrolled-list">
+      {courses.map((course) => (
+        <div
           key={course.id}
-          id={course.id}
-          title={course.title}
-          progress={course.progress}
-          lessons={course.lessons}
-          quizzes={course.quizzes}
-        />
-        ))}
-      </div>
+          className="enrolled-course-card"
+          onClick={() => navigate(`/course-details/${course.id}`)}
+          style={{ cursor: "pointer" }}
+        >
+          <div className="enrolled-course-card__cover">
+            {course.thumbnail ? (
+              <img
+                src={course.thumbnail}
+                alt={course.title}
+                className="enrolled-course-card__image"
+              />
+            ) : (
+              <div className="enrolled-course-card__image enrolled-course-card__image--placeholder">
+                No Cover
+              </div>
+            )}
+          </div>
+
+          <div className="enrolled-course-card__body">
+            <h3 className="enrolled-course-card__title">{course.title}</h3>
+            <p className="enrolled-course-card__author">{course.instructor}</p>
+            <p className="enrolled-course-card__progress">
+              {course.progress || 0}% progress
+            </p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
