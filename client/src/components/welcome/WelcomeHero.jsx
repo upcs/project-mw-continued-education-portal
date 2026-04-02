@@ -21,9 +21,9 @@ export default function WelcomeHero() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
-
+    alert("hello");
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch("http://localhost:3000/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -102,7 +102,7 @@ export default function WelcomeHero() {
 
             {error && <p className="welcome-login__error">{error}</p>}
 
-            <button type="submit" className="welcome-login__submit">
+            <button type="submit" onClick={()=>{alert("hello")}} className="welcome-login__submit">
               Login
             </button>
           </form>
