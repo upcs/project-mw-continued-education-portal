@@ -9,3 +9,49 @@
   transform: translateY(-3px);
   box-shadow: 0 10px 20px rgba(0,0,0,0.08);
 }
+.course-card {
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.course-card__image-wrap {
+  position: relative;
+  width: 100%;
+  height: 190px;
+  overflow: hidden;
+  background: #e5e7eb;
+}
+
+.course-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.course-card__image--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-weight: 600;
+  background: linear-gradient(135deg, #dbeafe, #e5e7eb);
+}
+
+.course-card__badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(17, 24, 39, 0.75);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.course-card__body {
+  padding: 16px;
+}

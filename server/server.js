@@ -44,6 +44,138 @@ function extractYouTubeId(url = "") {
 }
 
 
+app.get("/api/courses/:id/modules", (req, res) => {
+  const { id } = req.params;
+
+  const query = `
+    SELECT
+      id,
+      course_id,
+      title,
+      type,
+      content,
+      file_url,
+      file_type,
+      position
+    FROM course_modules
+    WHERE course_id = ?
+    ORDER BY position ASC, id ASC
+  `;
+
+  dbms.dbquery(query, [id], (err, response) => {
+    if (err) {
+      console.error("GET MODULES ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch modules",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: response || [],
+    });
+  });
+});
+
+app.post("/api/courses/:id/modules", upload.single("moduleFile"), (req, res) => {
+  const { id } = req.params;
+  const { title, type, content } = req.body;
+
+  if (!title || !type) {
+    return res.status(400).json({
+      success: false,
+      message: "Title and type are required",
+    });
+  }
+
+  const uploadedFile = req.file || null;
+
+  const fileUrl = uploadedFile
+    ? `http://localhost:${PORT}/uploads/${uploadedFile.filename}`
+    : "";
+
+  const fileType = uploadedFile
+    ? (
+        uploadedFile.mimetype ||
+        (uploadedFile.originalname.toLowerCase().endsWith(".pdf")
+          ? "application/pdf"
+          : uploadedFile.originalname.toLowerCase().endsWith(".txt")
+          ? "text/plain"
+          : uploadedFile.originalname.toLowerCase().endsWith(".md")
+          ? "text/plain"
+          : "")
+      )
+    : "";
+
+  const positionQuery = `
+    SELECT COALESCE(MAX(position), 0) + 1 AS nextPosition
+    FROM course_modules
+    WHERE course_id = ?
+  `;
+
+  dbms.dbquery(positionQuery, [id], (posErr, posRes) => {
+    if (posErr) {
+      console.error("MODULE POSITION ERROR:", posErr);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to determine module position",
+      });
+    }
+
+    const nextPosition = posRes?.[0]?.nextPosition || 1;
+
+    const insertQuery = `
+      INSERT INTO course_modules (
+        course_id,
+        title,
+        type,
+        content,
+        file_url,
+        file_type,
+        position
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      id,
+      title,
+      type,
+      content || "",
+      fileUrl,
+      fileType,
+      nextPosition,
+    ];
+
+    dbms.dbquery(insertQuery, values, (insertErr, insertRes) => {
+      if (insertErr) {
+        console.error("ADD MODULE ERROR:", insertErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to add module",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: `${type === "quiz" ? "Quiz" : "Module"} added successfully`,
+        data: {
+          id: insertRes.insertId,
+          course_id: Number(id),
+          title,
+          type,
+          content: content || "",
+          file_url: fileUrl,
+          file_type: fileType,
+          position: nextPosition,
+        },
+      });
+    });
+  });
+});
+
+
 app.get("/api/health", (req, res) => {
   res.json({ message: "API is running" });
 });
@@ -51,38 +183,10 @@ app.get("/api/health", (req, res) => {
 app.post("/api/auth/login", (req, res) => {
   console.log("hello");
   const { email, password } = req.body;
-  const query = `SELECT * FROM users WHERE email="${email}";`;
 
-  dbms.dbquery(query, async (err, response) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ success: false });
-    }
+  const query = `SELECT * FROM users WHERE email = ?`;
 
-    if (!response || response.length === 0) {
-      return res.json({ success: false });
-    }
-   
-
-    const user = response[0];
-  //  const hashedNewPassword = await bcrypt.hash(user.password);
-    const isMatch = await bcrypt.compare(password, user.password);
-
-     console.log(user.email, user.password);
-    if (isMatch) {
-      return res.json({ success: true });
-    } else {
-      return res.json({ success: false });
-    }
-  });
-});
-
-app.post("/api/profile/change-password", (req, res) => {
-  const { email, oldPassword, newPassword } = req.body;
-
-  const query = `SELECT * FROM users WHERE email="${email}";`;
-
-  dbms.dbquery(query, async (err, response) => {
+  dbms.dbquery(query, [email], async (err, response) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ success: false });
@@ -93,7 +197,38 @@ app.post("/api/profile/change-password", (req, res) => {
     }
 
     const user = response[0];
+    const isMatch = await bcrypt.compare(password, user.password);
 
+    if (!isMatch) {
+      return res.json({ success: false, message: "Invalid email or password" });
+    }
+
+    return res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+    });
+  });
+});
+
+app.post("/api/profile/change-password", (req, res) => {
+  const { email, oldPassword, newPassword } = req.body;
+
+  const query = `SELECT * FROM users WHERE email = ?`;
+
+  dbms.dbquery(query, [email], async (err, response) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false });
+    }
+
+    if (!response || response.length === 0) {
+      return res.json({ success: false, message: "User not found" });
+    }
+
+    const user = response[0];
     const isMatch = await bcrypt.compare(oldPassword, user.password);
 
     if (!isMatch) {
@@ -104,10 +239,9 @@ app.post("/api/profile/change-password", (req, res) => {
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    const updateQuery = `UPDATE users SET password = ? WHERE email = ?`;
 
-    const updateQuery = `UPDATE users SET password="${hashedNewPassword}" WHERE email="${email}";`;
-
-    dbms.dbquery(updateQuery, (err2) => {
+    dbms.dbquery(updateQuery, [hashedNewPassword, email], (err2) => {
       if (err2) {
         console.error(err2);
         return res.status(500).json({ success: false });
@@ -122,39 +256,182 @@ app.post("/api/profile/change-password", (req, res) => {
 });
 
 
-
 app.post("/api/auth/signup", async (req, res) => {
   const { email, password } = req.body;
 
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: "Email and password are required",
+    });
+  }
+
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const checkQuery = `SELECT * FROM users WHERE email = ?`;
 
-    const query = `INSERT INTO users (email, password) VALUES ("${email}", "${hashedPassword}");`;
-
-    dbms.dbquery(query, (err) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ success: false });
+    dbms.dbquery(checkQuery, [email], async (checkErr, checkResponse) => {
+      if (checkErr) {
+        console.error(checkErr);
+        return res.status(500).json({
+          success: false,
+          message: "Database error",
+        });
       }
 
-      return res.json({ success: true });
+      if (checkResponse && checkResponse.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already exists",
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const insertQuery = `
+        INSERT INTO users (email, password)
+        VALUES (?, ?)
+      `;
+
+      dbms.dbquery(insertQuery, [email, hashedPassword], (insertErr) => {
+        if (insertErr) {
+          console.error(insertErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to create account",
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: "Account created successfully",
+        });
+      });
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 });
+
+
+app.post("/api/courses/upload",
+  upload.fields([
+    { name: "thumbnail", maxCount: 1 },
+    { name: "courseFile", maxCount: 1 },
+  ]),
+  (req, res) => {
+    const {
+      title,
+      instructor,
+      lessons,
+      quizzes,
+      progress,
+      description,
+    } = req.body;
+
+    if (!title || !instructor) {
+      return res.status(400).json({
+        success: false,
+        message: "Title and instructor are required",
+      });
+    }
+
+    const thumbnailFile = req.files?.thumbnail?.[0] || null;
+    const courseFile = req.files?.courseFile?.[0] || null;
+
+    const thumbnailUrl = thumbnailFile
+      ? `http://localhost:${PORT}/uploads/${thumbnailFile.filename}`
+      : "";
+
+    const fileUrl = courseFile
+      ? `http://localhost:${PORT}/uploads/${courseFile.filename}`
+      : "";
+
+   const fileType = courseFile
+  ? (
+      courseFile.mimetype ||
+      (courseFile.originalname.toLowerCase().endsWith(".pdf")
+        ? "application/pdf"
+        : courseFile.originalname.toLowerCase().endsWith(".txt")
+        ? "text/plain"
+        : "")
+    )
+  : "";
+
+    const query = `
+      INSERT INTO courses (
+        title,
+        instructor,
+        lessons,
+        quizzes,
+        progress,
+        description,
+        thumbnail,
+        file_url,
+        file_type
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      title,
+      instructor,
+      Number(lessons) || 0,
+      Number(quizzes) || 0,
+      Number(progress) || 0,
+      description || "",
+      thumbnailUrl,
+      fileUrl,
+      fileType,
+    ];
+
+    dbms.dbquery(query, values, (err, response) => {
+      if (err) {
+        console.error("COURSE UPLOAD ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload course",
+          error: err.sqlMessage || err.message || String(err),
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Course uploaded successfully",
+        courseId: response.insertId,
+        data: {
+          id: response.insertId,
+          title,
+          instructor,
+          lessons: Number(lessons) || 0,
+          quizzes: Number(quizzes) || 0,
+          progress: Number(progress) || 0,
+          description: description || "",
+          thumbnail: thumbnailUrl,
+          file_url: fileUrl,
+          file_type: fileType,
+        },
+      });
+    });
+  });
+
 
 app.get("/api/courses", (req, res) => {
   const query = `
     SELECT
       id,
       title,
-      instructor AS author,
+      instructor,
       lessons,
       quizzes,
+      progress,
       thumbnail,
-      description
+      description,
+      file_url,
+      file_type
     FROM courses
     ORDER BY id DESC;
   `;
@@ -175,16 +452,20 @@ app.get("/api/courses", (req, res) => {
   });
 });
 
+
 app.get("/api/courses/enrolled", (req, res) => {
   const query = `
     SELECT
       id,
       title,
       instructor,
+      lessons,
+      quizzes,
       progress,
-      thumbnail
+      thumbnail,
+      description
     FROM courses
-    ORDER BY id DESC;
+    ORDER BY id DESC
   `;
 
   dbms.dbquery(query, (err, response) => {
@@ -215,12 +496,14 @@ app.get("/api/courses/:id", (req, res) => {
       thumbnail,
       description,
       lessons,
-      quizzes
+      quizzes,
+      file_url,
+      file_type
     FROM courses
-    WHERE id = "${id}";
+    WHERE id = ?
   `;
 
-  dbms.dbquery(courseQuery, (err, courseResponse) => {
+  dbms.dbquery(courseQuery, [id], (err, courseResponse) => {
     if (err) {
       console.error("COURSE DETAILS ERROR:", err);
       return res.status(500).json({
@@ -243,11 +526,11 @@ app.get("/api/courses/:id", (req, res) => {
         id,
         title
       FROM course_modules
-      WHERE course_id = "${id}"
-      ORDER BY id ASC;
+      WHERE course_id = ?
+      ORDER BY id ASC
     `;
 
-    dbms.dbquery(modulesQuery, (modulesErr, modulesResponse) => {
+    dbms.dbquery(modulesQuery, [id], (modulesErr, modulesResponse) => {
       if (modulesErr) {
         console.error("COURSE MODULES ERROR:", modulesErr);
         return res.status(500).json({
@@ -266,6 +549,148 @@ app.get("/api/courses/:id", (req, res) => {
     });
   });
 });
+
+app.post("/api/courses/:id/modules", upload.single("moduleFile"), (req, res) => {
+  const { id } = req.params;
+  const { title, type, content } = req.body;
+
+  if (!title || !type) {
+    return res.status(400).json({
+      success: false,
+      message: "Title and type are required",
+    });
+  }
+
+  const uploadedFile = req.file || null;
+
+  const fileUrl = uploadedFile
+    ? `http://localhost:${PORT}/uploads/${uploadedFile.filename}`
+    : "";
+
+  const fileType = uploadedFile
+    ? (
+        uploadedFile.mimetype ||
+        (uploadedFile.originalname.toLowerCase().endsWith(".pdf")
+          ? "application/pdf"
+          : uploadedFile.originalname.toLowerCase().endsWith(".txt")
+          ? "text/plain"
+          : "")
+      )
+    : "";
+
+  const positionQuery = `
+    SELECT COALESCE(MAX(position), 0) + 1 AS nextPosition
+    FROM course_modules
+    WHERE course_id = ?
+  `;
+
+  dbms.dbquery(positionQuery, [id], (posErr, posRes) => {
+    if (posErr) {
+      console.error("POSITION ERROR:", posErr);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to determine module position",
+      });
+    }
+
+    const nextPosition = posRes?.[0]?.nextPosition || 1;
+
+    const insertQuery = `
+      INSERT INTO course_modules (
+        course_id,
+        title,
+        type,
+        content,
+        file_url,
+        file_type,
+        position
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      id,
+      title,
+      type,
+      content || "",
+      fileUrl,
+      fileType,
+      nextPosition,
+    ];
+
+    dbms.dbquery(insertQuery, values, (insertErr, response) => {
+      if (insertErr) {
+        console.error("ADD MODULE ERROR:", insertErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to add module",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: `${type === "quiz" ? "Quiz" : "Module"} added successfully`,
+        data: {
+          id: response.insertId,
+          course_id: Number(id),
+          title,
+          type,
+          content: content || "",
+          file_url: fileUrl,
+          file_type: fileType,
+          position: nextPosition,
+        },
+      });
+    });
+  });
+});
+
+app.post("/api/modules/:moduleId/upload",
+  upload.single("moduleFile"),
+  (req, res) => {
+    const { moduleId } = req.params;
+    const { content } = req.body;
+
+    const uploadedFile = req.file || null;
+
+    const fileUrl = uploadedFile
+      ? `http://localhost:${PORT}/uploads/${uploadedFile.filename}`
+      : "";
+
+    const fileType = uploadedFile ? uploadedFile.mimetype || "" : "";
+
+    const query = `
+      UPDATE course_modules
+      SET content = ?, file_url = ?, file_type = ?
+      WHERE id = ?
+    `;
+
+    dbms.dbquery(
+      query,
+      [content || "", fileUrl, fileType, moduleId],
+      (err) => {
+        if (err) {
+          console.error("MODULE UPLOAD ERROR:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to upload module file",
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: "Module updated successfully",
+          data: {
+            id: Number(moduleId),
+            content: content || "",
+            file_url: fileUrl,
+            file_type: fileType,
+          },
+        });
+      }
+    );
+  }
+);
 
 app.post("/api/profile", (req, res) => {
   const { email } = req.body;
@@ -428,6 +853,18 @@ app.get("/api/db-test", (req, res) => {
 
     return res.json({ success: true, response });
   });
+});
+
+app.post("/api/courses/:id/modules", (req, res) => {
+  res.json({ success: true, route: "add module works" });
+});
+
+app.put("/api/modules/:moduleId", (req, res) => {
+  res.json({ success: true, route: "edit module works" });
+});
+
+app.delete("/api/modules/:moduleId", (req, res) => {
+  res.json({ success: true, route: "delete module works" });
 });
 
 ////////////////////////

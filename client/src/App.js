@@ -11,20 +11,22 @@ import CourseDetails from "./pages/CourseDetails";
 import UploadCourse from "./pages/UploadCourse";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ProfileView from "./pages/ProfileView";
-
+import Signup from "./pages/signup";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-          <Route path="/" element={<Welcome />} />
-          
-          <Route
-            element={
-              <ProtectedRoute>
+        <Route path="/" element={<Welcome />} />
+        <Route path="/signup" element={<Signup />} />
+
+        <Route
+          element={
+            <ProtectedRoute>
               <AppLayout />
-              </ProtectedRoute>
-            }>
+            </ProtectedRoute>
+          }
+        >
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/catalog" element={<CourseCatalog />} />
           <Route path="/my-courses" element={<MyCourses />} />
@@ -33,7 +35,6 @@ function App() {
           <Route path="/course-details/:id" element={<CourseDetails />} />
           <Route path="/upload" element={<UploadCourse />} />
           <Route path="/profile" element={<ProfileView />} />
-          
         </Route>
       </Routes>
     </BrowserRouter>

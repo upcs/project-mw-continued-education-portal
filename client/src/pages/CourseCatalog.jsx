@@ -47,7 +47,15 @@ export default function CourseCatalog() {
 
       <div className="course-catalog__grid">
         {courses.map((course) => (
-          <CourseCard key={course.id} {...course} />
+          <CourseCard
+            key={course.id}
+            id={course.id}
+            title={course.title}
+            author={course.instructor}
+            lessons={course.lessons}
+            quizzes={course.quizzes}
+            thumbnail={course.thumbnail}
+          />
         ))}
       </div>
     </section>

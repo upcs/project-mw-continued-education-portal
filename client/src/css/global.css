@@ -1,0 +1,31 @@
+/* GLOBAL RESET FOR FORM ELEMENTS */
+
+input,
+textarea,
+select {
+  box-sizing: border-box;
+  font: inherit;
+  width: 100%;
+}
+
+/* Base style */
+input,
+textarea,
+select {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Focus state */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border: 1px solid #39a0de;
+  box-shadow: 0 0 0 3px rgba(57, 160, 222, 0.15);
+}
