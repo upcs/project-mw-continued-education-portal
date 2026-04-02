@@ -451,3 +451,12 @@
   font-size: 0.75rem;
   color: #4b5563;
 }
+
+.dashboard-course-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-course-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}

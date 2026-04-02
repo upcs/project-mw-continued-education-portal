@@ -57,7 +57,7 @@ export default function Login2() {
   return (
     <main className="login-page">
       <div className="login-card">
-        <h1 className="login-card__title">Login TEST 123</h1>
+        <h1 className="login-card__title">Login</h1>
         <p className="login-card__sub">Access your learning platform</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
