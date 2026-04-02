@@ -65,7 +65,7 @@ app.post("/api/auth/login", (req, res) => {
 
     const user = response[0];
   //  const hashedNewPassword = await bcrypt.hash(user.password);
-    const isMatch = await bcrypt.compare(user.email, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
 
      console.log(user.email, user.password);
     if (isMatch) {
@@ -142,6 +142,128 @@ app.post("/api/auth/signup", async (req, res) => {
     console.error(err);
     return res.status(500).json({ success: false });
   }
+});
+
+app.get("/api/courses", (req, res) => {
+  const query = `
+    SELECT
+      id,
+      title,
+      instructor AS author,
+      lessons,
+      quizzes,
+      thumbnail,
+      description
+    FROM courses
+    ORDER BY id DESC;
+  `;
+
+  dbms.dbquery(query, (err, response) => {
+    if (err) {
+      console.error("ALL COURSES ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch courses",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: response || [],
+    });
+  });
+});
+
+app.get("/api/courses/enrolled", (req, res) => {
+  const query = `
+    SELECT
+      id,
+      title,
+      instructor,
+      progress,
+      thumbnail
+    FROM courses
+    ORDER BY id DESC;
+  `;
+
+  dbms.dbquery(query, (err, response) => {
+    if (err) {
+      console.error("ENROLLED COURSES ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch enrolled courses",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: response || [],
+    });
+  });
+});
+
+app.get("/api/courses/:id", (req, res) => {
+  const { id } = req.params;
+
+  const courseQuery = `
+    SELECT
+      id,
+      title,
+      instructor,
+      progress,
+      thumbnail,
+      description,
+      lessons,
+      quizzes
+    FROM courses
+    WHERE id = "${id}";
+  `;
+
+  dbms.dbquery(courseQuery, (err, courseResponse) => {
+    if (err) {
+      console.error("COURSE DETAILS ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch course details",
+      });
+    }
+
+    if (!courseResponse || courseResponse.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    const course = courseResponse[0];
+
+    const modulesQuery = `
+      SELECT
+        id,
+        title
+      FROM course_modules
+      WHERE course_id = "${id}"
+      ORDER BY id ASC;
+    `;
+
+    dbms.dbquery(modulesQuery, (modulesErr, modulesResponse) => {
+      if (modulesErr) {
+        console.error("COURSE MODULES ERROR:", modulesErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch course modules",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          ...course,
+          modules: modulesResponse || [],
+        },
+      });
+    });
+  });
 });
 
 app.post("/api/profile", (req, res) => {

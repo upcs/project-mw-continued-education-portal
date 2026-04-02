@@ -3,11 +3,19 @@ import { GraduationCap, MoreHorizontal, User } from "lucide-react";
 export default function MyCourseCard({
   title,
   author,
+  progress = 0,
+  onClick,
   surfaceClass = "",
   progressClass = "",
 }) {
+  const safeProgress = Math.max(0, Math.min(100, progress));
+
   return (
-    <article className={`dashboard-course-card ${surfaceClass}`}>
+    <article
+      className={`dashboard-course-card ${surfaceClass}`}
+      onClick={onClick}
+      style={{ cursor: onClick ? "pointer" : "default" }}
+    >
       <div className="dashboard-course-card__top">
         <GraduationCap size={20} />
         <MoreHorizontal size={18} />
@@ -22,9 +30,16 @@ export default function MyCourseCard({
 
       <div className="dashboard-course-card__progress-visual">
         <div className={`dashboard-course-card__progress ${progressClass}`}>
-          <div className="dashboard-course-card__progress-inner" />
+          <div
+            className="dashboard-course-card__progress-inner"
+            style={{ width: `${safeProgress}%` }}
+          />
         </div>
       </div>
+
+      <p className="dashboard-course-card__progress-text">
+        {safeProgress}%
+      </p>
     </article>
   );
 }
