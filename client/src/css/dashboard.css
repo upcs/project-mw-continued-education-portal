@@ -460,3 +460,8 @@
   transform: translateY(-4px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
+
+.dashboard-course-card:focus {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
