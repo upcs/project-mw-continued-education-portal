@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import API from "../../api/api";
 
 export default function SignupHero() {
   const navigate = useNavigate();
@@ -58,7 +59,7 @@ export default function SignupHero() {
     try {
       setLoading(true);
 
-      const response = await fetch("http://localhost:5000/api/auth/signup", {
+      const response = await API.get("/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

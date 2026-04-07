@@ -3,13 +3,73 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const dbms = require("./dbms.js");
-const bcrypt = require("bcryptjs")
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const fs = require("fs");
 
 const app = express();
 //const PORT = process.env.PORT || 5000;
 const PORT = 3000;
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev_jwt_secret_change_me";
+
+function createToken(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role || "educator",
+    },
+    JWT_SECRET,
+    { expiresIn: "1d" }
+  );
+}
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      success: false,
+      message: "No token provided",
+    });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
+  }
+}
+
+function authorizeRoles(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden",
+      });
+    }
+
+    next();
+  };
+}
+
 
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
@@ -41,6 +101,27 @@ function extractYouTubeId(url = "") {
     url.match(/youtu\.be\/([^?&]+)/) ||
     url.match(/\/shorts\/([^?&]+)/);
   return match ? match[1] : "";
+}
+
+function getUserWithProfileByEmail(email, callback) {
+  const query = `
+    SELECT
+      u.id,
+      u.email,
+      u.password,
+      COALESCE(p.fullname, '') AS fullname,
+      COALESCE(p.role, 'educator') AS role,
+      COALESCE(p.organization, '') AS organization,
+      COALESCE(p.photo, '') AS photo,
+      COALESCE(p.whatsapp, '') AS whatsapp,
+      COALESCE(p.specialization, '') AS specialization
+    FROM users u
+    LEFT JOIN profile p ON p.email = u.email
+    WHERE u.email = ?
+    LIMIT 1
+  `;
+
+  dbms.dbquery(query, [email], callback);
 }
 
 
@@ -78,102 +159,52 @@ app.get("/api/courses/:id/modules", (req, res) => {
   });
 });
 
-app.post("/api/courses/:id/modules", upload.single("moduleFile"), (req, res) => {
-  const { id } = req.params;
-  const { title, type, content } = req.body;
 
-  if (!title || !type) {
-    return res.status(400).json({
-      success: false,
-      message: "Title and type are required",
-    });
-  }
+app.put( "/api/admin/users/:email/role",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const { email } = req.params;
+    const { role } = req.body;
 
-  const uploadedFile = req.file || null;
+    const allowedRoles = ["admin", "trainer", "educator", "principal"];
 
-  const fileUrl = uploadedFile
-    ? `http://localhost:${PORT}/uploads/${uploadedFile.filename}`
-    : "";
-
-  const fileType = uploadedFile
-    ? (
-        uploadedFile.mimetype ||
-        (uploadedFile.originalname.toLowerCase().endsWith(".pdf")
-          ? "application/pdf"
-          : uploadedFile.originalname.toLowerCase().endsWith(".txt")
-          ? "text/plain"
-          : uploadedFile.originalname.toLowerCase().endsWith(".md")
-          ? "text/plain"
-          : "")
-      )
-    : "";
-
-  const positionQuery = `
-    SELECT COALESCE(MAX(position), 0) + 1 AS nextPosition
-    FROM course_modules
-    WHERE course_id = ?
-  `;
-
-  dbms.dbquery(positionQuery, [id], (posErr, posRes) => {
-    if (posErr) {
-      console.error("MODULE POSITION ERROR:", posErr);
-      return res.status(500).json({
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
         success: false,
-        message: "Failed to determine module position",
+        message: "Invalid role",
       });
     }
 
-    const nextPosition = posRes?.[0]?.nextPosition || 1;
+    if (role === "admin" && req.user.email !== "superadmin@yourapp.com") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot assign admin role",
+      });
+    } 
 
-    const insertQuery = `
-      INSERT INTO course_modules (
-        course_id,
-        title,
-        type,
-        content,
-        file_url,
-        file_type,
-        position
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+    const query = `
+      UPDATE profile
+      SET role = ?
+      WHERE email = ?
     `;
 
-    const values = [
-      id,
-      title,
-      type,
-      content || "",
-      fileUrl,
-      fileType,
-      nextPosition,
-    ];
-
-    dbms.dbquery(insertQuery, values, (insertErr, insertRes) => {
-      if (insertErr) {
-        console.error("ADD MODULE ERROR:", insertErr);
+    dbms.dbquery(query, [role, email], (err) => {
+      if (err) {
+        console.error("ROLE UPDATE ERROR:", err);
         return res.status(500).json({
           success: false,
-          message: "Failed to add module",
+          message: "Failed to update role",
         });
       }
 
       return res.json({
         success: true,
-        message: `${type === "quiz" ? "Quiz" : "Module"} added successfully`,
-        data: {
-          id: insertRes.insertId,
-          course_id: Number(id),
-          title,
-          type,
-          content: content || "",
-          file_url: fileUrl,
-          file_type: fileType,
-          position: nextPosition,
-        },
+        message: "Role updated successfully",
       });
     });
-  });
-});
+  }
+);
 
 
 app.get("/api/health", (req, res) => {
@@ -181,46 +212,100 @@ app.get("/api/health", (req, res) => {
 });
 
 app.post("/api/auth/login", (req, res) => {
-  console.log("hello");
   const { email, password } = req.body;
 
-  const query = `SELECT * FROM users WHERE email = ?`;
-
-  dbms.dbquery(query, [email], async (err, response) => {
+  getUserWithProfileByEmail(email, async (err, response) => {
     if (err) {
-      console.error(err);
-      return res.status(500).json({ success: false });
+      console.error("LOGIN ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Server error during login",
+      });
     }
 
     if (!response || response.length === 0) {
-      return res.json({ success: false, message: "User not found" });
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
     }
 
     const user = response[0];
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.json({ success: false, message: "Invalid email or password" });
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
     }
+
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      fullname: user.fullname || "",
+      role: user.role || "educator",
+      organization: user.organization || "",
+      photo: user.photo || "",
+      whatsapp: user.whatsapp || "",
+      specialization: user.specialization || "",
+    };
+
+    const token = createToken(safeUser);
+
+    return res.json({
+      success: true,
+      token,
+      user: safeUser,
+    });
+  });
+});
+
+
+app.get("/api/auth/me", authenticateToken, (req, res) => {
+  getUserWithProfileByEmail(req.user.email, (err, response) => {
+    if (err) {
+      console.error("AUTH ME ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load current user",
+      });
+    }
+
+    if (!response || response.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const user = response[0];
 
     return res.json({
       success: true,
       user: {
         id: user.id,
         email: user.email,
+        fullname: user.fullname || "",
+        role: user.role || "educator",
+        organization: user.organization || "",
+        photo: user.photo || "",
+        whatsapp: user.whatsapp || "",
+        specialization: user.specialization || "",
       },
     });
   });
 });
 
-app.post("/api/profile/change-password", (req, res) => {
-  const { email, oldPassword, newPassword } = req.body;
+
+app.post("/api/profile/change-password", authenticateToken, (req, res) => {
+  const { oldPassword, newPassword } = req.body;
 
   const query = `SELECT * FROM users WHERE email = ?`;
 
-  dbms.dbquery(query, [email], async (err, response) => {
+  dbms.dbquery(query, [req.user.email], async (err, response) => {
     if (err) {
-      console.error(err);
+      console.error("CHANGE PASSWORD ERROR:", err);
       return res.status(500).json({ success: false });
     }
 
@@ -241,9 +326,9 @@ app.post("/api/profile/change-password", (req, res) => {
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     const updateQuery = `UPDATE users SET password = ? WHERE email = ?`;
 
-    dbms.dbquery(updateQuery, [hashedNewPassword, email], (err2) => {
+    dbms.dbquery(updateQuery, [hashedNewPassword, req.user.email], (err2) => {
       if (err2) {
-        console.error(err2);
+        console.error("CHANGE PASSWORD UPDATE ERROR:", err2);
         return res.status(500).json({ success: false });
       }
 
@@ -317,7 +402,9 @@ app.post("/api/auth/signup", async (req, res) => {
 });
 
 
-app.post("/api/courses/upload",
+app.post( "/api/courses/upload",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
   upload.fields([
     { name: "thumbnail", maxCount: 1 },
     { name: "courseFile", maxCount: 1 },
@@ -550,7 +637,10 @@ app.get("/api/courses/:id", (req, res) => {
   });
 });
 
-app.post("/api/courses/:id/modules", upload.single("moduleFile"), (req, res) => {
+app.post("/api/courses/:id/modules",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  upload.single("moduleFile"), (req, res) => {
   const { id } = req.params;
   const { title, type, content } = req.body;
 
@@ -573,6 +663,8 @@ app.post("/api/courses/:id/modules", upload.single("moduleFile"), (req, res) => 
         (uploadedFile.originalname.toLowerCase().endsWith(".pdf")
           ? "application/pdf"
           : uploadedFile.originalname.toLowerCase().endsWith(".txt")
+          ? "text/plain"
+          : uploadedFile.originalname.toLowerCase().endsWith(".md")
           ? "text/plain"
           : "")
       )
@@ -646,6 +738,8 @@ app.post("/api/courses/:id/modules", upload.single("moduleFile"), (req, res) => 
 });
 
 app.post("/api/modules/:moduleId/upload",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
   upload.single("moduleFile"),
   (req, res) => {
     const { moduleId } = req.params;
@@ -692,26 +786,48 @@ app.post("/api/modules/:moduleId/upload",
   }
 );
 
-app.post("/api/profile", (req, res) => {
-  const { email } = req.body;
+app.get("/api/profile/me", authenticateToken, (req, res) => {
+  const query = `
+    SELECT
+      COALESCE(photo, '') AS photo,
+      COALESCE(fullname, '') AS fullname,
+      COALESCE(role, 'educator') AS role,
+      email,
+      COALESCE(whatsapp, '') AS whatsapp,
+      COALESCE(organization, '') AS organization,
+      COALESCE(specialization, '') AS specialization
+    FROM profile
+    WHERE email = ?
+    LIMIT 1
+  `;
 
-  const query = `SELECT * FROM profile WHERE email="${email}";`;
-
-  dbms.dbquery(query, (err, response) => {
+  dbms.dbquery(query, [req.user.email], (err, response) => {
     if (err) {
-      return res.status(500).json([]);
+      console.error("PROFILE LOAD ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load profile",
+      });
     }
 
-    return res.json(response);
+    if (!response || response.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Profile not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: response[0],
+    });
   });
 });
 
-app.post("/api/profile/update", (req, res) => {
+app.post("/api/profile/update", authenticateToken, (req, res) => {
   const {
-    email,
     photo,
     fullname,
-    role,
     whatsapp,
     organization,
     specialization,
@@ -720,26 +836,40 @@ app.post("/api/profile/update", (req, res) => {
   const query = `
     UPDATE profile
     SET
-      photo="${photo}",
-      fullname="${fullname}",
-      role="${role}",
-      whatsapp="${whatsapp}",
-      organization="${organization}",
-      specialization="${specialization}"
-    WHERE email="${email}";
+      photo = ?,
+      fullname = ?,
+      whatsapp = ?,
+      organization = ?,
+      specialization = ?
+    WHERE email = ?
   `;
 
-  dbms.dbquery(query, (err, response) => {
+  const values = [
+    photo || "",
+    fullname || "",
+    whatsapp || "",
+    organization || "",
+    specialization || "",
+    req.user.email,
+  ];
+
+  dbms.dbquery(query, values, (err) => {
     if (err) {
       console.error("PROFILE UPDATE ERROR:", err);
-      return res.status(500).json({ success: false });
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update profile",
+      });
     }
 
-    return res.json({ success: true });
+    return res.json({
+      success: true,
+      message: "Profile updated successfully",
+    });
   });
 });
 
-app.post("/api/profile/upload-photo", upload.single("photo"), (req, res) => {
+app.post("/api/profile/upload-photo", authenticateToken, upload.single("photo"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({
       success: false,
@@ -749,9 +879,21 @@ app.post("/api/profile/upload-photo", upload.single("photo"), (req, res) => {
 
   const photoUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`;
 
-  return res.json({
-    success: true,
-    photoUrl,
+  const updateQuery = `UPDATE profile SET photo = ? WHERE email = ?`;
+
+  dbms.dbquery(updateQuery, [photoUrl, req.user.email], (err) => {
+    if (err) {
+      console.error("PHOTO UPDATE ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to save photo",
+      });
+    }
+
+    return res.json({
+      success: true,
+      photoUrl,
+    });
   });
 });
 
@@ -853,18 +995,6 @@ app.get("/api/db-test", (req, res) => {
 
     return res.json({ success: true, response });
   });
-});
-
-app.post("/api/courses/:id/modules", (req, res) => {
-  res.json({ success: true, route: "add module works" });
-});
-
-app.put("/api/modules/:moduleId", (req, res) => {
-  res.json({ success: true, route: "edit module works" });
-});
-
-app.delete("/api/modules/:moduleId", (req, res) => {
-  res.json({ success: true, route: "delete module works" });
 });
 
 ////////////////////////

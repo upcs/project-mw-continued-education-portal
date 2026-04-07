@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "../css/course-details.css";
+import API from "../api/api";
 
 export default function CourseDetails() {
   const { id } = useParams();
@@ -37,8 +38,8 @@ export default function CourseDetails() {
       setError("");
 
       const [courseRes, modulesRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/courses/${id}`),
-        fetch(`http://localhost:5000/api/courses/${id}/modules`),
+        API.get(`/courses/${id}`),
+        API.get(`/courses/${id}/modules`),
       ]);
 
       const courseData = await readJsonSafely(courseRes, "COURSE");
@@ -108,7 +109,7 @@ export default function CourseDetails() {
         formData.append("moduleFile", newItemFile);
       }
 
-      const response = await fetch(`http://localhost:5000/api/courses/${id}/modules`, {
+      const response = await API.get(`/courses/${id}/modules`, {
         method: "POST",
         body: formData,
       });

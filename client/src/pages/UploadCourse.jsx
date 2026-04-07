@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "../css/upload.css";
+import API from "../api/api";
+
 
 export default function UploadCourse() {
   const thumbnailInputRef = useRef(null);
@@ -185,7 +187,7 @@ export default function UploadCourse() {
         data.append("courseFile", courseFile);
       }
 
-      const response = await fetch("http://localhost:5000/api/courses/upload", {
+      const response = await API.get("/courses/upload", {
         method: "POST",
         body: data,
       });

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import "../css/course-catalog.css";
 import FilterTabs from "../components/courses/FilterTabs";
 import CourseCard from "../components/courses/CourseCard";
+import API from "../api/api";
+
 
 export default function CourseCatalog() {
   const [courses, setCourses] = useState([]);
@@ -14,7 +16,7 @@ export default function CourseCatalog() {
         setLoading(true);
         setError("");
 
-        const response = await fetch("http://localhost:5000/api/courses");
+        const response = await API.get("/courses");
         const result = await response.json();
 
         if (!response.ok || !result.success) {

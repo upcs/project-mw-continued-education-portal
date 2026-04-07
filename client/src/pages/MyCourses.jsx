@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import "../css/my-courses.css";
 import { useNavigate } from "react-router-dom";
 import EnrolledList from "../components/my-courses/EnrolledCourseList";
+import API from "../api/api";
+
 
 export default function MyCourses() {
   const navigate = useNavigate();
@@ -16,7 +18,7 @@ export default function MyCourses() {
         setLoading(true);
         setError("");
 
-        const response = await fetch("http://localhost:5000/api/courses/enrolled");
+        const response = await API.get("/courses/enrolled");
         const result = await response.json();
 
         if (!response.ok || !result.success) {

@@ -12,7 +12,7 @@ export default function LiveEventsCard() {
 
         <div className="live-event-card__meta">
           <User size={14} />
-          <span>Shams Tabrez</span>
+          <span>UP LENDO</span>
         </div>
       </div>
 

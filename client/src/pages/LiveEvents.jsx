@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import "../css/live-events.css";
+import API from "../api/api";
 
 const upcomingLessons = [
   {
@@ -50,8 +51,8 @@ export default function LiveEvents() {
     try {
       setSearching(true);
 
-      const response = await fetch(
-        `http://localhost:5000/api/resources/search?q=${encodeURIComponent(
+      const response = await API.get(
+        `/resources/search?q=${encodeURIComponent(
           searchQuery
         )}&source=${encodeURIComponent(searchSource)}`
       );

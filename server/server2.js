@@ -1,3 +1,4 @@
+import API from '../client/src/api/api.js';
 const dbms = require('./dbms.js');
 const express = require('express');
 const path = require('path');
@@ -5,6 +6,7 @@ const multer = require('multer');
 const uploads = multer({ dest: './uploads/'});
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -120,7 +122,7 @@ var password = body.password;
 if (field == "password") {updatePass(res, req); return;}
 if (field == "username") {updateUser(res, req); return;}
 var query1 = `select * from userdata where username = "${username}" and password = "${password}";`;
-const res2 = await fetch('http://localhost:3000/login', {
+const res2 = await API.get('/login', {
   method: "POST",
   headers: {"Content-Type": "application/json"},
   body: JSON.stringify({username: username, password: password})
