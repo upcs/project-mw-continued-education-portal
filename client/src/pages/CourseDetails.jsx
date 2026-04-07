@@ -2,10 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "../css/course-details.css";
 import API from "../api/api";
+import { useAuth } from "../context/AuthContext";
+import {
+  getModuleSubmissions,
+  getMySubmissions,
+  submitQuiz,
+} from "../api/submissions";
 
 export default function CourseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [course, setCourse] = useState(null);
   const [modules, setModules] = useState([]);
@@ -21,16 +28,19 @@ export default function CourseDetails() {
   const [addingItem, setAddingItem] = useState(false);
   const [addMessage, setAddMessage] = useState("");
 
-  const readJsonSafely = async (response, label) => {
-    const text = await response.text();
-    console.log(`${label} RAW RESPONSE:`, text);
+  const [mySubmissions, setMySubmissions] = useState([]);
+  const [moduleSubmissions, setModuleSubmissions] = useState([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
 
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new Error(`${label} did not return JSON`);
-    }
-  };
+  const [quizAnswer, setQuizAnswer] = useState("");
+  const [quizFile, setQuizFile] = useState(null);
+  const [quizSubmitting, setQuizSubmitting] = useState(false);
+  const [quizMessage, setQuizMessage] = useState("");
+  const [quizError, setQuizError] = useState("");
+
+  const isTrainerOrAdmin =
+    user?.role === "admin" || user?.role === "trainer";
+  const isEducator = user?.role === "educator";
 
   const loadData = useCallback(async () => {
     try {
@@ -42,21 +52,19 @@ export default function CourseDetails() {
         API.get(`/courses/${id}/modules`),
       ]);
 
-      const courseData = await readJsonSafely(courseRes, "COURSE");
-      const modulesData = await readJsonSafely(modulesRes, "MODULES");
-
-      if (!courseRes.ok || !courseData.success) {
-        throw new Error(courseData.message || "Failed to fetch course");
+      if (!courseRes?.data?.success) {
+        throw new Error(courseRes?.data?.message || "Failed to fetch course");
       }
 
-      if (!modulesRes.ok || !modulesData.success) {
-        throw new Error(modulesData.message || "Failed to fetch modules");
+      if (!modulesRes?.data?.success) {
+        throw new Error(modulesRes?.data?.message || "Failed to fetch modules");
       }
 
-      setCourse(courseData.data);
-      setModules(modulesData.data || []);
+      setCourse(courseRes.data.data);
+      setModules(modulesRes.data.data || []);
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      console.error("COURSE DETAILS LOAD ERROR:", err);
+      setError(err?.response?.data?.message || err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -66,10 +74,57 @@ export default function CourseDetails() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const loadMySubmissions = async () => {
+      if (!isEducator) return;
+
+      try {
+        const { data } = await getMySubmissions();
+        setMySubmissions(data?.data || []);
+      } catch (err) {
+        console.error("MY SUBMISSIONS LOAD ERROR:", err);
+      }
+    };
+
+    loadMySubmissions();
+  }, [isEducator]);
+
   const activeModule = useMemo(() => {
     if (activeModuleId === "overview") return null;
     return modules.find((item) => item.id === activeModuleId) || null;
   }, [modules, activeModuleId]);
+
+  const activeEducatorSubmission = useMemo(() => {
+    if (!activeModule || !isEducator) return null;
+
+    return (
+      mySubmissions.find(
+        (submission) => Number(submission.module_id) === Number(activeModule.id)
+      ) || null
+    );
+  }, [activeModule, isEducator, mySubmissions]);
+
+  useEffect(() => {
+    const loadModuleSubmissionsForReview = async () => {
+      if (!activeModule || activeModule.type !== "quiz" || !isTrainerOrAdmin) {
+        setModuleSubmissions([]);
+        return;
+      }
+
+      try {
+        setLoadingSubmissions(true);
+        const { data } = await getModuleSubmissions(activeModule.id);
+        setModuleSubmissions(data?.data || []);
+      } catch (err) {
+        console.error("MODULE SUBMISSIONS LOAD ERROR:", err);
+        setModuleSubmissions([]);
+      } finally {
+        setLoadingSubmissions(false);
+      }
+    };
+
+    loadModuleSubmissionsForReview();
+  }, [activeModule, isTrainerOrAdmin]);
 
   const openAddForm = (type) => {
     setShowAddForm(true);
@@ -109,26 +164,59 @@ export default function CourseDetails() {
         formData.append("moduleFile", newItemFile);
       }
 
-      const response = await API.get(`/courses/${id}/modules`, {
-        method: "POST",
-        body: formData,
+      const { data } = await API.post(`/courses/${id}/modules`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
 
-      const result = await readJsonSafely(response, "ADD MODULE");
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to add item");
+      if (!data?.success) {
+        throw new Error(data?.message || "Failed to add item");
       }
 
       await loadData();
       closeAddForm();
-
-      // Keep the current lesson/overview open.
-      // Do NOT auto-switch to the new module.
     } catch (err) {
-      setAddMessage(err.message || "Failed to add item.");
+      console.error("ADD MODULE ERROR:", err);
+      setAddMessage(err?.response?.data?.message || err.message || "Failed to add item.");
     } finally {
       setAddingItem(false);
+    }
+  };
+
+  const handleQuizSubmit = async (e) => {
+    e.preventDefault();
+    if (!activeModule) return;
+
+    try {
+      setQuizSubmitting(true);
+      setQuizMessage("");
+      setQuizError("");
+
+      const formData = new FormData();
+      formData.append("answerText", quizAnswer);
+
+      if (quizFile) {
+        formData.append("submissionFile", quizFile);
+      }
+
+      const { data } = await submitQuiz(activeModule.id, formData);
+
+      if (!data?.success) {
+        throw new Error(data?.message || "Failed to submit quiz");
+      }
+
+      setQuizMessage("Quiz submitted successfully.");
+      setQuizAnswer("");
+      setQuizFile(null);
+
+      const refreshed = await getMySubmissions();
+      setMySubmissions(refreshed?.data?.data || []);
+    } catch (err) {
+      console.error("QUIZ SUBMIT ERROR:", err);
+      setQuizError(err?.response?.data?.message || err.message || "Failed to submit quiz.");
+    } finally {
+      setQuizSubmitting(false);
     }
   };
 
@@ -176,6 +264,84 @@ export default function CourseDetails() {
       <a href={fileUrl} target="_blank" rel="noreferrer" className="lesson-view__file-link">
         Open uploaded file
       </a>
+    );
+  };
+
+  const renderEducatorQuizPanel = () => {
+    if (!activeModule || activeModule.type !== "quiz" || !isEducator) return null;
+
+    return (
+      <div className="quiz-panel">
+        <h3 className="quiz-panel__title">Submit Quiz</h3>
+
+        {activeEducatorSubmission ? (
+          <div className="quiz-panel__submissionStatus">
+            <p><strong>Status:</strong> {activeEducatorSubmission.status}</p>
+            <p><strong>Grade:</strong> {activeEducatorSubmission.grade || "Not graded yet"}</p>
+            <p><strong>Feedback:</strong> {activeEducatorSubmission.feedback || "No feedback yet"}</p>
+
+            {activeEducatorSubmission.file_url && (
+              <a
+                href={activeEducatorSubmission.file_url}
+                target="_blank"
+                rel="noreferrer"
+                className="lesson-view__file-link"
+              >
+                View Submitted File
+              </a>
+            )}
+          </div>
+        ) : (
+          <form onSubmit={handleQuizSubmit} className="quiz-panel__form">
+            <textarea
+              className="quiz-panel__textarea"
+              value={quizAnswer}
+              onChange={(e) => setQuizAnswer(e.target.value)}
+              placeholder="Enter your answer"
+            />
+
+            <input
+              type="file"
+              onChange={(e) => setQuizFile(e.target.files?.[0] || null)}
+            />
+
+            {quizMessage && <p className="quiz-panel__success">{quizMessage}</p>}
+            {quizError && <p className="quiz-panel__error">{quizError}</p>}
+
+            <button type="submit" disabled={quizSubmitting} className="quiz-panel__submit">
+              {quizSubmitting ? "Submitting..." : "Submit Quiz"}
+            </button>
+          </form>
+        )}
+      </div>
+    );
+  };
+
+  const renderTrainerQuizPanel = () => {
+    if (!activeModule || activeModule.type !== "quiz" || !isTrainerOrAdmin) return null;
+
+    return (
+      <div className="quiz-panel">
+        <div className="quiz-panel__reviewHeader">
+          <h3 className="quiz-panel__title">Submission Review</h3>
+          <button
+            type="button"
+            className="quiz-panel__reviewButton"
+            onClick={() => navigate(`/course-submissions/${id}`)}
+          >
+            Review Submissions
+          </button>
+        </div>
+
+        {loadingSubmissions ? (
+          <p>Loading submissions...</p>
+        ) : (
+          <p>
+            {moduleSubmissions.length} submission
+            {moduleSubmissions.length === 1 ? "" : "s"} for this quiz.
+          </p>
+        )}
+      </div>
     );
   };
 
@@ -267,6 +433,9 @@ export default function CourseDetails() {
             <p>This {activeModule.type} does not have content yet.</p>
           </div>
         )}
+
+        {renderEducatorQuizPanel()}
+        {renderTrainerQuizPanel()}
       </div>
     );
   };
@@ -338,25 +507,27 @@ export default function CourseDetails() {
           )}
         </div>
 
-        <div className="lesson-sidebar__actions">
-          <button
-            className="lesson-sidebar__add-btn"
-            onClick={() => openAddForm("lesson")}
-            type="button"
-          >
-            + Add Module
-          </button>
+        {isTrainerOrAdmin && (
+          <div className="lesson-sidebar__actions">
+            <button
+              className="lesson-sidebar__add-btn"
+              onClick={() => openAddForm("lesson")}
+              type="button"
+            >
+              + Add Module
+            </button>
 
-          <button
-            className="lesson-sidebar__add-btn lesson-sidebar__add-btn--secondary"
-            onClick={() => openAddForm("quiz")}
-            type="button"
-          >
-            + Add Quiz
-          </button>
-        </div>
+            <button
+              className="lesson-sidebar__add-btn lesson-sidebar__add-btn--secondary"
+              onClick={() => openAddForm("quiz")}
+              type="button"
+            >
+              + Add Quiz
+            </button>
+          </div>
+        )}
 
-        {showAddForm && (
+        {showAddForm && isTrainerOrAdmin && (
           <form className="lesson-sidebar__add-form" onSubmit={handleAddItem}>
             <div className="lesson-sidebar__add-type">
               Adding: <strong>{newItemType === "quiz" ? "Quiz" : "Module"}</strong>

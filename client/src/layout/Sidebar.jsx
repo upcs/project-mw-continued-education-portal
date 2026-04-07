@@ -11,6 +11,7 @@ import {
   User,
   Shield,
   Building2,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "../css/sidebar.css";
@@ -53,6 +54,14 @@ export default function Sidebar() {
         icon: Building2,
         id: "educatorProgress",
         path: "/educator-progress",
+      });
+    }
+
+    if (user?.role === "educator") {
+      baseItems.push({
+        icon: FileText,
+        id: "mySubmissions",
+        path: "/my-submissions",
       });
     }
 
