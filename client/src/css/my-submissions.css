@@ -1,0 +1,86 @@
+.my-submissions-page {
+  padding: 24px;
+}
+
+.my-submissions-page__header {
+  margin-bottom: 20px;
+}
+
+.my-submissions-page__header h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.my-submissions-page__header p {
+  margin: 0;
+  color: #667085;
+}
+
+.my-submissions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.my-submission-card {
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.my-submission-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.my-submission-card__top h3 {
+  margin: 0 0 8px;
+}
+
+.my-submission-card__meta {
+  margin: 4px 0;
+  color: #475467;
+}
+
+.my-submission-card__status {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.my-submission-card__status--submitted {
+  background: #eff8ff;
+  color: #175cd3;
+}
+
+.my-submission-card__status--approved {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.my-submission-card__status--rejected {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.my-submission-card__section {
+  margin-top: 14px;
+}
+
+.my-submission-card__section p {
+  margin: 8px 0 0;
+}
+
+@media (max-width: 768px) {
+  .my-submission-card__top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

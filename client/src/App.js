@@ -13,11 +13,11 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ProfileView from "./pages/ProfileView";
 import Signup from "./pages/signup";
 import Unauthorized from "./pages/Unauthorized";
-
-// placeholder pages if you create them
 import AdminPage from "./pages/AdminPage";
 import OrganizationsPage from "./pages/OrganizationsPage";
 import EducatorProgressPage from "./pages/EducatorProgressPage";
+import MySubmissions from "./pages/MySubmissions";
+import CourseSubmissions from "./pages/CourseSubmissions";
 
 function App() {
   return (
@@ -58,26 +58,44 @@ function App() {
                 <AdminPage />
               </ProtectedRoute>
             }
-          />
-
-          <Route
+            />
+          
+            <Route
             path="/organizations"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <OrganizationsPage />
               </ProtectedRoute>
             }
-          />
+            />
 
-          <Route
+            <Route
             path="/educator-progress"
             element={
               <ProtectedRoute allowedRoles={["principal"]}>
                 <EducatorProgressPage />
               </ProtectedRoute>
             }
+            />
+            <Route
+            path="/my-submissions"
+            element={
+           <ProtectedRoute allowedRoles={["educator"]}>
+            <MySubmissions />
+           </ProtectedRoute>
+            }
+            />
+
+            <Route
+            path="/course-submissions/:id"
+            element={
+            <ProtectedRoute allowedRoles={["admin", "trainer"]}>
+            <CourseSubmissions />
+            </ProtectedRoute>
+             }
           />
-        </Route>
+
+          </Route>
       </Routes>
     </BrowserRouter>
   );

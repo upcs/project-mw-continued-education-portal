@@ -637,6 +637,114 @@ app.get("/api/courses/:id", (req, res) => {
   });
 });
 
+app.get("/api/courses/:courseId/submissions",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const { courseId } = req.params;
+
+    const query = `
+      SELECT
+        qs.id,
+        qs.module_id,
+        qs.course_id,
+        qs.user_email,
+        qs.answer_text,
+        qs.file_url,
+        qs.file_type,
+        qs.status,
+        qs.grade,
+        qs.feedback,
+        qs.reviewed_by_email,
+        qs.reviewed_at,
+        qs.created_at,
+        cm.title AS module_title,
+        c.title AS course_title
+      FROM quiz_submissions qs
+      LEFT JOIN course_modules cm ON qs.module_id = cm.id
+      LEFT JOIN courses c ON qs.course_id = c.id
+      WHERE qs.course_id = ?
+      ORDER BY qs.created_at DESC
+    `;
+
+    dbms.dbquery(query, [courseId], (err, response) => {
+      if (err) {
+        console.error("COURSE SUBMISSIONS ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch course submissions",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: response || [],
+      });
+    });
+  }
+);
+
+app.put("/api/submissions/:submissionId/grade",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const { submissionId } = req.params;
+    const { status, grade, feedback } = req.body;
+
+    const allowedStatuses = ["submitted", "approved", "rejected"];
+
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status",
+      });
+    }
+
+    const query = `
+      UPDATE quiz_submissions
+      SET
+        status = ?,
+        grade = ?,
+        feedback = ?,
+        reviewed_by_email = ?,
+        reviewed_at = NOW()
+      WHERE id = ?
+    `;
+
+    dbms.dbquery(
+      query,
+      [
+        status,
+        grade || "",
+        feedback || "",
+        req.user.email,
+        submissionId,
+      ],
+      (err, response) => {
+        if (err) {
+          console.error("GRADE SUBMISSION ERROR:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to grade submission",
+          });
+        }
+
+        if (!response || response.affectedRows === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Submission not found",
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: "Submission graded successfully",
+        });
+      }
+    );
+  }
+);
+
 app.post("/api/courses/:id/modules",
   authenticateToken,
   authorizeRoles("admin", "trainer"),
@@ -785,6 +893,218 @@ app.post("/api/modules/:moduleId/upload",
     );
   }
 );
+
+app.get( "/api/modules/:moduleId/submissions",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const { moduleId } = req.params;
+
+    const query = `
+      SELECT
+        qs.id,
+        qs.module_id,
+        qs.course_id,
+        qs.user_email,
+        qs.answer_text,
+        qs.file_url,
+        qs.file_type,
+        qs.status,
+        qs.grade,
+        qs.feedback,
+        qs.reviewed_by_email,
+        qs.reviewed_at,
+        qs.created_at
+      FROM quiz_submissions qs
+      WHERE qs.module_id = ?
+      ORDER BY qs.created_at DESC
+    `;
+
+    dbms.dbquery(query, [moduleId], (err, response) => {
+      if (err) {
+        console.error("MODULE SUBMISSIONS ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch module submissions",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: response || [],
+      });
+    });
+  }
+);
+
+app.post("/api/modules/:moduleId/submissions",
+  authenticateToken,
+  authorizeRoles("educator"),
+  upload.single("submissionFile"),
+  (req, res) => {
+    const { moduleId } = req.params;
+    const { answerText } = req.body;
+
+    const uploadedFile = req.file || null;
+
+    const fileUrl = uploadedFile
+      ? `http://localhost:${PORT}/uploads/${uploadedFile.filename}`
+      : "";
+
+    const fileType = uploadedFile ? uploadedFile.mimetype || "" : "";
+
+    const moduleQuery = `
+      SELECT id, course_id, type
+      FROM course_modules
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(moduleQuery, [moduleId], (moduleErr, moduleRes) => {
+      if (moduleErr) {
+        console.error("MODULE LOOKUP ERROR:", moduleErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate module",
+        });
+      }
+
+      if (!moduleRes || moduleRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Module not found",
+        });
+      }
+
+      const module = moduleRes[0];
+
+      if (module.type !== "quiz") {
+        return res.status(400).json({
+          success: false,
+          message: "Submissions are only allowed for quiz modules",
+        });
+      }
+
+      const existingQuery = `
+        SELECT id
+        FROM quiz_submissions
+        WHERE module_id = ? AND user_email = ?
+        LIMIT 1
+      `;
+
+      dbms.dbquery(existingQuery, [module.id, req.user.email], (existingErr, existingRes) => {
+        if (existingErr) {
+          console.error("SUBMISSION CHECK ERROR:", existingErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to validate submission",
+          });
+        }
+
+        if (existingRes && existingRes.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: "You have already submitted this quiz",
+          });
+        }
+
+        const insertQuery = `
+          INSERT INTO quiz_submissions (
+            module_id,
+            course_id,
+            user_email,
+            answer_text,
+            file_url,
+            file_type,
+            status,
+            grade,
+            feedback,
+            reviewed_by_email,
+            reviewed_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, 'submitted', '', '', '', NULL)
+        `;
+
+        const values = [
+          module.id,
+          module.course_id,
+          req.user.email,
+          answerText || "",
+          fileUrl,
+          fileType,
+        ];
+
+        dbms.dbquery(insertQuery, values, (insertErr, insertRes) => {
+          if (insertErr) {
+            console.error("SUBMISSION INSERT ERROR:", insertErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to submit quiz",
+            });
+          }
+
+          return res.json({
+            success: true,
+            message: "Quiz submitted successfully",
+            data: {
+              id: insertRes.insertId,
+              module_id: module.id,
+              course_id: module.course_id,
+              user_email: req.user.email,
+              answer_text: answerText || "",
+              file_url: fileUrl,
+              file_type: fileType,
+              status: "submitted",
+              grade: "",
+              feedback: "",
+            },
+          });
+        });
+      });
+    });
+  }
+);
+
+app.get("/api/my-submissions", authenticateToken, (req, res) => {
+  const query = `
+    SELECT
+      qs.id,
+      qs.module_id,
+      qs.course_id,
+      qs.user_email,
+      qs.answer_text,
+      qs.file_url,
+      qs.file_type,
+      qs.status,
+      qs.grade,
+      qs.feedback,
+      qs.reviewed_by_email,
+      qs.reviewed_at,
+      qs.created_at,
+      cm.title AS module_title,
+      c.title AS course_title
+    FROM quiz_submissions qs
+    LEFT JOIN course_modules cm ON qs.module_id = cm.id
+    LEFT JOIN courses c ON qs.course_id = c.id
+    WHERE qs.user_email = ?
+    ORDER BY qs.created_at DESC
+  `;
+
+  dbms.dbquery(query, [req.user.email], (err, response) => {
+    if (err) {
+      console.error("MY SUBMISSIONS ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch submissions",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: response || [],
+    });
+  });
+});
 
 app.get("/api/profile/me", authenticateToken, (req, res) => {
   const query = `
