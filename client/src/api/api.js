@@ -1,16 +1,21 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api", // adjust if needed
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:3000/api",
 });
 
-// attach token if exists
-API.interceptors.request.use((req) => {
-  const user = JSON.parse(localStorage.getItem("user"));
-  if (user?.token) {
-    req.headers.Authorization = `Bearer ${user.token}`;
+API.interceptors.request.use((config) => {
+  try {
+    const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+
+    if (storedUser?.token) {
+      config.headers.Authorization = `Bearer ${storedUser.token}`;
+    }
+  } catch (error) {
+    localStorage.removeItem("user");
   }
-  return req;
+
+  return config;
 });
 
 export default API;

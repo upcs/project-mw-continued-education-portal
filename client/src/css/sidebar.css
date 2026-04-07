@@ -143,3 +143,10 @@
   color: #c7d5dd;
   word-break: break-word;
 }
+
+.sidebar__menuRole {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #777;
+  text-transform: capitalize;
+}

@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import "../css/profile-view.css";
+import API from "../api/api";
 
 const defaultPhoto =
   "https://via.placeholder.com/400x400.png?text=Profile";
 
 export default function ProfileView() {
+  const { user, setUser } = useAuth();
+
   const [profile, setProfile] = useState({
     photo: "",
     fullname: "",
     role: "",
-    email: localStorage.getItem("email") || "",
+    email: "",
     whatsapp: "",
     organization: "",
     specialization: "",
@@ -26,56 +30,103 @@ export default function ProfileView() {
   const [isEditing, setIsEditing] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
 
-  useEffect(() => {
-    const email = localStorage.getItem("email");
+  const getAuthHeaders = (isJson = true) => {
+    const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+    const token = storedUser?.token || user?.token;
 
-    if (!email) {
-      setError("No logged-in user found.");
-      setLoading(false);
-      return;
+    const headers = {};
+
+    if (isJson) {
+      headers["Content-Type"] = "application/json";
     }
 
-    fetch("http://localhost:5000/api/profile", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const user = data[0];
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
-          const loadedProfile = {
-            photo: user.photo || "",
-            fullname: user.fullname || "",
-            role: user.role || "",
-            email: user.email || email,
-            whatsapp: user.whatsapp || "",
-            organization: user.organization || "",
-            specialization: user.specialization || "",
-            oldPassword: "",
-            newPassword: "",
-          };
+    return headers;
+  };
 
-          setProfile(loadedProfile);
-          setOriginalProfile(loadedProfile);
+  useEffect(() => {
+    const loadProfile = async () => {
+      setLoading(true);
+      setError("");
+      setMessage("");
 
-          localStorage.setItem("name", user.fullname || "");
-          localStorage.setItem("photo", user.photo || "");
-        } else {
-          setError("Profile not found.");
+      try {
+        const response = await API.get("/profile/me", {
+          method: "GET",
+          headers: getAuthHeaders(false),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          setError(data.message || "Failed to load profile.");
+          setLoading(false);
+          return;
         }
 
-        setLoading(false);
-      })
-      .catch((err) => {
+        const userProfile = data.data;
+
+        const loadedProfile = {
+          photo: userProfile.photo || "",
+          fullname: userProfile.fullname || "",
+          role: userProfile.role || "",
+          email: userProfile.email || user?.email || "",
+          whatsapp: userProfile.whatsapp || "",
+          organization: userProfile.organization || "",
+          specialization: userProfile.specialization || "",
+          oldPassword: "",
+          newPassword: "",
+        };
+
+        setProfile(loadedProfile);
+        setOriginalProfile(loadedProfile);
+
+        localStorage.setItem("name", userProfile.fullname || "");
+        localStorage.setItem("photo", userProfile.photo || "");
+
+        const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+        if (storedUser) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify({
+              ...storedUser,
+              fullname: userProfile.fullname || storedUser.fullname || "",
+              photo: userProfile.photo || storedUser.photo || "",
+              role: userProfile.role || storedUser.role || "",
+              organization:
+                userProfile.organization || storedUser.organization || "",
+              whatsapp: userProfile.whatsapp || storedUser.whatsapp || "",
+              specialization:
+                userProfile.specialization || storedUser.specialization || "",
+            })
+          );
+        }
+
+        if (setUser) {
+          setUser((prev) => ({
+            ...(prev || {}),
+            fullname: userProfile.fullname || prev?.fullname || "",
+            photo: userProfile.photo || prev?.photo || "",
+            role: userProfile.role || prev?.role || "",
+            organization: userProfile.organization || prev?.organization || "",
+            whatsapp: userProfile.whatsapp || prev?.whatsapp || "",
+            specialization:
+              userProfile.specialization || prev?.specialization || "",
+          }));
+        }
+      } catch (err) {
         console.error("PROFILE LOAD ERROR:", err);
         setError("Failed to load profile.");
+      } finally {
         setLoading(false);
-      });
-  }, []);
+      }
+    };
+
+    loadProfile();
+  }, [setUser, user?.email, user?.token]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -89,36 +140,60 @@ export default function ProfileView() {
   };
 
   const handlePhotoUpload = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+    const file = e.target.files[0];
+    if (!file) return;
 
-  setMessage("");
-  setError("");
+    setMessage("");
+    setError("");
 
-  try {
-    const formData = new FormData();
-    formData.append("photo", file);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
 
-    const response = await fetch("http://localhost:5000/api/profile/upload-photo", {
-      method: "POST",
-      body: formData,
-    });
+      const response = await API.get("/profile/upload-photo", {
+        method: "POST",
+        headers: getAuthHeaders(false),
+        body: formData,
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.success === true) {
-      setProfile((prev) => ({
-        ...prev,
-        photo: data.photoUrl,
-      }));
-    } else {
-      setError("Failed to upload photo.");
+      if (response.ok && data.success === true) {
+        setProfile((prev) => ({
+          ...prev,
+          photo: data.photoUrl,
+        }));
+
+        localStorage.setItem("photo", data.photoUrl || "");
+
+        const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+        if (storedUser) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify({
+              ...storedUser,
+              photo: data.photoUrl,
+            })
+          );
+        }
+
+        if (setUser) {
+          setUser((prev) => ({
+            ...(prev || {}),
+            photo: data.photoUrl,
+          }));
+        }
+
+        setMessage("Photo uploaded successfully.");
+      } else {
+        setError(data.message || "Failed to upload photo.");
+      }
+    } catch (err) {
+      console.error("PHOTO UPLOAD ERROR:", err);
+      setError("Server error while uploading photo.");
     }
-  } catch (err) {
-    console.error("PHOTO UPLOAD ERROR:", err);
-    setError("Server error while uploading photo.");
-  }
-};
+  };
+
   const handleRemovePhoto = () => {
     setProfile((prev) => ({
       ...prev,
@@ -156,16 +231,12 @@ export default function ProfileView() {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/profile/update", {
+      const response = await API.get("/profile/update", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({
-          email: profile.email,
           photo: profile.photo,
           fullname: profile.fullname,
-          role: profile.role,
           whatsapp: profile.whatsapp,
           organization: profile.organization,
           specialization: profile.specialization,
@@ -174,7 +245,7 @@ export default function ProfileView() {
 
       const data = await response.json();
 
-      if (data.success === true) {
+      if (response.ok && data.success === true) {
         const savedProfile = {
           ...profile,
           oldPassword: "",
@@ -186,7 +257,32 @@ export default function ProfileView() {
 
         localStorage.setItem("name", profile.fullname || "");
         localStorage.setItem("photo", profile.photo || "");
-        localStorage.setItem("email", profile.email || "");
+
+        const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+        if (storedUser) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify({
+              ...storedUser,
+              fullname: profile.fullname || "",
+              photo: profile.photo || "",
+              whatsapp: profile.whatsapp || "",
+              organization: profile.organization || "",
+              specialization: profile.specialization || "",
+            })
+          );
+        }
+
+        if (setUser) {
+          setUser((prev) => ({
+            ...(prev || {}),
+            fullname: profile.fullname || "",
+            photo: profile.photo || "",
+            whatsapp: profile.whatsapp || "",
+            organization: profile.organization || "",
+            specialization: profile.specialization || "",
+          }));
+        }
 
         setMessage("Profile updated successfully.");
         setShowPrompt(true);
@@ -196,7 +292,7 @@ export default function ProfileView() {
           setShowPrompt(false);
         }, 2500);
       } else {
-        setError("Failed to update profile.");
+        setError(data.message || "Failed to update profile.");
       }
     } catch (err) {
       console.error("PROFILE SAVE ERROR:", err);
@@ -206,8 +302,7 @@ export default function ProfileView() {
     }
   };
 
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
+  const handlePasswordChange = async () => {
     setPasswordSaving(true);
     setMessage("");
     setError("");
@@ -219,13 +314,10 @@ export default function ProfileView() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/profile/change-password", {
+      const response = await API.get("/profile/change-password", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({
-          email: profile.email,
           oldPassword: profile.oldPassword,
           newPassword: profile.newPassword,
         }),
@@ -233,8 +325,8 @@ export default function ProfileView() {
 
       const data = await response.json();
 
-      if (data.success === true) {
-        setMessage("Password changed successfully.");
+      if (response.ok && data.success === true) {
+        setMessage(data.message || "Password changed successfully.");
         setProfile((prev) => ({
           ...prev,
           oldPassword: "",
@@ -352,8 +444,12 @@ export default function ProfileView() {
         <section className="profile-card profile-card--right">
           <h2 className="profile-card__title">Profile Information</h2>
 
-          {message && <p className="profile-status profile-status--success">{message}</p>}
-          {error && <p className="profile-status profile-status--error">{error}</p>}
+          {message && (
+            <p className="profile-status profile-status--success">{message}</p>
+          )}
+          {error && (
+            <p className="profile-status profile-status--error">{error}</p>
+          )}
 
           <div className="profile-section">
             <div className="profile-fields-grid">
@@ -372,19 +468,13 @@ export default function ProfileView() {
 
               <label className="profile-field">
                 <span className="profile-field__label">Role</span>
-                <select
+                <input
+                  type="text"
                   name="role"
                   value={profile.role}
-                  onChange={handleChange}
                   className="profile-field__input"
-                  disabled={!isEditing}
-                >
-                  <option value="">Select role</option>
-                  <option value="Student">Student</option>
-                  <option value="Instructor">Instructor</option>
-                  <option value="Admin">Admin</option>
-                  <option value="Subscriber">Subscriber</option>
-                </select>
+                  disabled
+                />
               </label>
 
               <label className="profile-field">
@@ -393,10 +483,8 @@ export default function ProfileView() {
                   type="email"
                   name="email"
                   value={profile.email}
-                  onChange={handleChange}
                   className="profile-field__input"
-                  placeholder="Enter email"
-                  disabled={!isEditing}
+                  disabled
                 />
               </label>
 

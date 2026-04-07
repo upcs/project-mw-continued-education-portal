@@ -1,6 +1,7 @@
 import "../css/login.css";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import API from "../api/api";
 
 export default function Login2() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function Login2() {
     try {
       console.log("ABOUT TO FETCH", form);
 
-      const response = await fetch("/api/auth/login", {
+      const response = await API.get("/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

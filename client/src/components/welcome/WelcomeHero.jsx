@@ -1,13 +1,19 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 
 export default function WelcomeHero() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
+
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -21,32 +27,38 @@ export default function WelcomeHero() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
-    alert("hello");
+    setSubmitting(true);
+
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-        }),
+      const loggedInUser = await login({
+        email: form.email,
+        password: form.password,
       });
 
-      const data = await response.json();
-      console.log("LOGIN RESPONSE:", data);
-
-      if (data.success === true) {
-        localStorage.setItem("isAuthenticated", "true");
-        localStorage.setItem("email", form.email);
-        navigate("/dashboard");
-      } else {
-        setError("Invalid email or password");
+      if (loggedInUser?.fullname) {
+        localStorage.setItem("name", loggedInUser.fullname);
       }
+
+      if (loggedInUser?.email) {
+        localStorage.setItem("email", loggedInUser.email);
+      }
+
+      if (loggedInUser?.photo) {
+        localStorage.setItem("photo", loggedInUser.photo);
+      }
+
+      const from = location.state?.from?.pathname || "/dashboard";
+      navigate(from, { replace: true });
     } catch (err) {
       console.error("LOGIN ERROR:", err);
-      setError("Server error. Please try again.");
+
+      const message =
+        err?.response?.data?.message ||
+        "Invalid email or password";
+
+      setError(message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -76,7 +88,9 @@ export default function WelcomeHero() {
           </p>
 
           <form className="welcome-login__form" onSubmit={handleSubmit}>
-            <label className="welcome-login__label" htmlFor="email">Email</label>
+            <label className="welcome-login__label" htmlFor="email">
+              Email
+            </label>
             <input
               id="email"
               className="welcome-login__input"
@@ -88,7 +102,9 @@ export default function WelcomeHero() {
               required
             />
 
-            <label className="welcome-login__label" htmlFor="password">Password</label>
+            <label className="welcome-login__label" htmlFor="password">
+              Password
+            </label>
             <input
               id="password"
               className="welcome-login__input"
@@ -102,8 +118,12 @@ export default function WelcomeHero() {
 
             {error && <p className="welcome-login__error">{error}</p>}
 
-            <button type="submit" onClick={()=>{alert("hello")}} className="welcome-login__submit">
-              Login
+            <button
+              type="submit"
+              className="welcome-login__submit"
+              disabled={submitting}
+            >
+              {submitting ? "Logging in..." : "Login"}
             </button>
           </form>
         </div>

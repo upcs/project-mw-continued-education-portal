@@ -7,6 +7,7 @@ import ProgressCard from "../components/dashboard/ProgressCard";
 import LiveEventsCard from "../components/dashboard/LiveEventsCard";
 import ActivityFeed from "../components/dashboard/ActivityFeed";
 import MyCourseCard from "../components/dashboard/MyCourseCard";
+import API from "../api/api";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function Dashboard() {
         setLoadingCourses(true);
         setCoursesError("");
 
-        const response = await fetch("http://localhost:5000/api/courses/enrolled");
+        const response = await API.get("/courses/enrolled");
         const result = await response.json();
 
         if (!response.ok || !result.success) {

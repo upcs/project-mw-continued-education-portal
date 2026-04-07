@@ -12,6 +12,12 @@ import UploadCourse from "./pages/UploadCourse";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ProfileView from "./pages/ProfileView";
 import Signup from "./pages/signup";
+import Unauthorized from "./pages/Unauthorized";
+
+// placeholder pages if you create them
+import AdminPage from "./pages/AdminPage";
+import OrganizationsPage from "./pages/OrganizationsPage";
+import EducatorProgressPage from "./pages/EducatorProgressPage";
 
 function App() {
   return (
@@ -19,6 +25,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Welcome />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
 
         <Route
           element={
@@ -33,8 +40,43 @@ function App() {
           <Route path="/discussion" element={<Discussion />} />
           <Route path="/live" element={<LiveEvents />} />
           <Route path="/course-details/:id" element={<CourseDetails />} />
-          <Route path="/upload" element={<UploadCourse />} />
           <Route path="/profile" element={<ProfileView />} />
+
+          <Route
+            path="/upload"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "trainer"]}>
+                <UploadCourse />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/organizations"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <OrganizationsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/educator-progress"
+            element={
+              <ProtectedRoute allowedRoles={["principal"]}>
+                <EducatorProgressPage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Routes>
     </BrowserRouter>
