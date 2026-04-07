@@ -7,6 +7,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const fs = require("fs");
+//import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -187,7 +188,6 @@ app.post("/api/auth/login", (req, res) => {
         message: "Server error during login",
       });
     }
-
     if (!response || response.length === 0) {
       return res.status(404).json({
         success: false,
@@ -197,6 +197,7 @@ app.post("/api/auth/login", (req, res) => {
 
     const user = response[0];
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log(await bcrypt.hash(user.password, 10));
 
     if (!isMatch) {
       return res.status(401).json({
@@ -1325,8 +1326,8 @@ app.get(/.*/, (req, res) => {
 });
 
 if (require.main === module){
-    app.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+    app.listen(PORT, "0.0.0.0",  () => {
+        console.log(`Server running on Port: ${PORT}`);
    });
 }
 

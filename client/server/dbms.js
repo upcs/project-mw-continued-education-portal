@@ -9,17 +9,17 @@ exports.version = "0.0.2";
 const mysql = require("mysql2");
 const async = require("async");
 
-const host = "pdx0mysql00.campus.up.edu";
-const database = "cs341s26mwed";
-const user = "cs341s26mwed";
-const password = "UH(alVh_D1PR1We-";
+//const host = "pdx0mysql00.campus.up.edu";
+//const database = "cs341s26mwed";
+//const user = "cs341s26mwed";
+//const password = "UH(alVh_D1PR1We-";
 
-//var host = "localhost";
+const host = "localhost";
 //var host = "pdx0mysql00.campus.up.edu";
-//var host = "cs341s26mwed.campus.up.edu";    //pdx0mysql00 IP address
-//var database = "malawi";  //database name
-//var user = "admin2";         //username (change to match your db)
-//var password = "123";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
+//const host = "cs341s26mwed.campus.up.edu";    //pdx0mysql00 IP address
+const database = "malawi";  //database name
+const user = "admin2";         //username (change to match your db)
+const password = "123";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
 exports.dbquery = function (queryStr, params, callback) {
   let dbclient;
   let results = null;
