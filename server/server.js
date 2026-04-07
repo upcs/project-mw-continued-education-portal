@@ -232,6 +232,7 @@ app.post("/api/auth/login", (req, res) => {
 
     const user = response[0];
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log(await bcrypt.hash(user.password, 10));
 
     if (!isMatch) {
       return res.status(401).json({
