@@ -20,6 +20,7 @@ const host = "localhost";
 const database = "malawi";  //database name
 const user = "admin2";         //username (change to match your db)
 const password = "123";  //password (change to match your db, yes THIS IS VERY POOR PRACTICE)
+
 exports.dbquery = function (queryStr, params, callback) {
   let dbclient;
   let results = null;
