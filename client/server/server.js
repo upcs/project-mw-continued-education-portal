@@ -1,7 +1,7 @@
+const path = require("path");
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 const dbms = require("./dbms.js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -13,7 +13,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 //const PORT = 5000;
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev_jwt_secret_change_me";
+const JWT_SECRET = process.env.JWT_SECRET;
+const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
+
+if (!JWT_SECRET){
+    throw new Error("Missing JWT_SECRET in environment variables.");
+}
 
 function createToken(user) {
   return jwt.sign(
@@ -60,6 +65,10 @@ function authorizeRoles(...allowedRoles) {
       });
     }
 
+    if (req.user.role === "admin") {
+      return next();
+    }
+
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
@@ -72,7 +81,12 @@ function authorizeRoles(...allowedRoles) {
 }
 
 
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN || true,
+    credentials: true,
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -126,52 +140,6 @@ function getUserWithProfileByEmail(email, callback) {
 }
 
 
-app.put( "/api/admin/users/:email/role",
-  authenticateToken,
-  authorizeRoles("admin"),
-  (req, res) => {
-    const { email } = req.params;
-    const { role } = req.body;
-
-    const allowedRoles = ["admin", "trainer", "educator", "principal"];
-
-    if (!allowedRoles.includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid role",
-      });
-    }
-
-    if (role === "admin" && req.user.email !== "superadmin@yourapp.com") {
-      return res.status(403).json({
-        success: false,
-        message: "Cannot assign admin role",
-      });
-    } 
-
-    const query = `
-      UPDATE profile
-      SET role = ?
-      WHERE email = ?
-    `;
-
-    dbms.dbquery(query, [role, email], (err) => {
-      if (err) {
-        console.error("ROLE UPDATE ERROR:", err);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to update role",
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: "Role updated successfully",
-      });
-    });
-  }
-);
-
 
 app.get("/api/health", (req, res) => {
   res.json({ message: "API is running" });
@@ -197,7 +165,6 @@ app.post("/api/auth/login", (req, res) => {
 
     const user = response[0];
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log(await bcrypt.hash(user.password, 10));
 
     if (!isMatch) {
       return res.status(401).json({
@@ -308,61 +275,87 @@ app.post("/api/profile/change-password", authenticateToken, (req, res) => {
 
 
 app.post("/api/auth/signup", async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Email and password are required",
-    });
-  }
-
   try {
-    const checkQuery = `SELECT * FROM users WHERE email = ?`;
+    const { fullname, email, password, role } = req.body;
 
-    dbms.dbquery(checkQuery, [email], async (checkErr, checkResponse) => {
-      if (checkErr) {
-        console.error(checkErr);
-        return res.status(500).json({
-          success: false,
-          message: "Database error",
-        });
-      }
+    if (!fullname || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name, email, and password are required",
+      });
+    }
 
-      if (checkResponse && checkResponse.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Email already exists",
-        });
-      }
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedRole = role || "educator";
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+    const allowedRoles = ["admin", "trainer", "educator", "principal"];
+    if (!allowedRoles.includes(normalizedRole)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role selected",
+      });
+    }
 
-      const insertQuery = `
-        INSERT INTO users (email, password)
-        VALUES (?, ?)
-      `;
-
-      dbms.dbquery(insertQuery, [email, hashedPassword], (insertErr) => {
-        if (insertErr) {
-          console.error(insertErr);
+    dbms.dbquery(
+      "SELECT email FROM users WHERE email = ?",
+      [normalizedEmail],
+      async (checkErr, existingUsers) => {
+        if (checkErr) {
+          console.error("SIGNUP CHECK ERROR:", checkErr);
           return res.status(500).json({
             success: false,
-            message: "Failed to create account",
+            message: "Database error while checking user",
           });
         }
 
-        return res.json({
-          success: true,
-          message: "Account created successfully",
-        });
-      });
-    });
-  } catch (err) {
-    console.error(err);
+        if (existingUsers && existingUsers.length > 0) {
+          return res.status(409).json({
+            success: false,
+            message: "An account with this email already exists",
+          });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        dbms.dbquery(
+          "INSERT INTO users (email, password) VALUES (?, ?)",
+          [normalizedEmail, hashedPassword],
+          (userErr) => {
+            if (userErr) {
+              console.error("SIGNUP USER INSERT ERROR:", userErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to create user account",
+              });
+            }
+
+            dbms.dbquery(
+              "INSERT INTO profile (email, fullname, role) VALUES (?, ?, ?)",
+              [normalizedEmail, fullname, normalizedRole],
+              (profileErr) => {
+                if (profileErr) {
+                  console.error("SIGNUP PROFILE INSERT ERROR:", profileErr);
+                  return res.status(500).json({
+                    success: false,
+                    message: "User created, but profile creation failed",
+                  });
+                }
+
+                return res.status(201).json({
+                  success: true,
+                  message: "Signup successful",
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error("SIGNUP ROUTE ERROR:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error",
+      message: "Internal server error during signup",
     });
   }
 });
@@ -396,11 +389,11 @@ app.post( "/api/courses/upload",
     const courseFile = req.files?.courseFile?.[0] || null;
 
     const thumbnailUrl = thumbnailFile
-      ? `http://localhost:${PORT}/uploads/${thumbnailFile.filename}`
+      ? `${APP_BASE_URL}/uploads/${thumbnailFile.filename}`
       : "";
 
     const fileUrl = courseFile
-      ? `http://localhost:${PORT}/uploads/${courseFile.filename}`
+      ? `${APP_BASE_URL}/uploads/${courseFile.filename}`
       : "";
 
    const fileType = courseFile
@@ -610,7 +603,7 @@ app.get("/api/courses/enrolled", authenticateToken, (req, res) => {
 
 app.post( "/api/courses/:courseId/enroll",
   authenticateToken,
-  authorizeRoles("educator"),
+  authorizeRoles("educator", "trainer", "principal", "admin"),
   (req, res) => {
     const { courseId } = req.params;
 
@@ -637,7 +630,13 @@ app.post( "/api/courses/:courseId/enroll",
         });
       }
 
-      const organizationId = profileRes[0].organization_id || null;
+      const organizationId = profileRes[0].organization_id;
+      if(!organizationId){
+        return res.status(400).json({
+          success: false,
+          message: "You must be assigned to an organization before enrolling in a course",
+        });
+      }
 
       const courseQuery = `
         SELECT id
@@ -1020,7 +1019,7 @@ app.post("/api/courses/:id/modules",
   const uploadedFile = req.file || null;
 
   const fileUrl = uploadedFile
-    ? `http://localhost:${PORT}/uploads/${uploadedFile.filename}`
+    ? `${APP_BASE_URL}/uploads/${uploadedFile.filename}`
     : "";
 
   const fileType = uploadedFile
@@ -1114,7 +1113,7 @@ app.post("/api/modules/:moduleId/upload",
     const uploadedFile = req.file || null;
 
     const fileUrl = uploadedFile
-      ? `http://localhost:${PORT}/uploads/${uploadedFile.filename}`
+      ? `${APP_BASE_URL}/uploads/${uploadedFile.filename}`
       : "";
 
     const fileType = uploadedFile ? uploadedFile.mimetype || "" : "";
@@ -1206,7 +1205,7 @@ app.post("/api/modules/:moduleId/submissions",
     const uploadedFile = req.file || null;
 
     const fileUrl = uploadedFile
-      ? `http://localhost:${PORT}/uploads/${uploadedFile.filename}`
+      ? `${APP_BASE_URL}/uploads/${uploadedFile.filename}`
       : "";
 
     const fileType = uploadedFile ? uploadedFile.mimetype || "" : "";
@@ -1647,7 +1646,7 @@ app.post("/api/profile/upload-photo", authenticateToken, upload.single("photo"),
     });
   }
 
-  const photoUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`;
+  const photoUrl = `${APP_BASE_URL}/uploads/${req.file.filename}`;
 
   const updateQuery = `UPDATE profile SET photo = ? WHERE email = ?`;
 
@@ -1993,12 +1992,184 @@ app.put( "/api/admin/users/:email/organization",
   }
 );
 
+app.delete( "/api/admin/users/:email",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const { email } = req.params;
+
+    const deleteAssignmentsQuery = `
+      DELETE FROM educator_course_assignments
+      WHERE educator_email = ? OR assigned_by_email = ?
+    `;
+
+    const deleteSubmissionsQuery = `
+      DELETE FROM quiz_submissions
+      WHERE user_email = ? OR reviewed_by_email = ?
+    `;
+
+    const deleteProfileQuery = `
+      DELETE FROM profile
+      WHERE email = ?
+    `;
+
+    const deleteUserQuery = `
+      DELETE FROM users
+      WHERE email = ?
+    `;
+
+    dbms.dbquery(deleteAssignmentsQuery, [email, email], (assignErr) => {
+      if (assignErr) {
+        console.error("DELETE USER ASSIGNMENTS ERROR:", assignErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to delete user assignments",
+        });
+      }
+
+      dbms.dbquery(deleteSubmissionsQuery, [email, email], (subErr) => {
+        if (subErr) {
+          console.error("DELETE USER SUBMISSIONS ERROR:", subErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to delete user submissions",
+          });
+        }
+
+        dbms.dbquery(deleteProfileQuery, [email], (profileErr) => {
+          if (profileErr) {
+            console.error("DELETE USER PROFILE ERROR:", profileErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to delete user profile",
+            });
+          }
+
+          dbms.dbquery(deleteUserQuery, [email], (userErr, response) => {
+            if (userErr) {
+              console.error("DELETE USER ACCOUNT ERROR:", userErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to delete user account",
+              });
+            }
+
+            if (!response || response.affectedRows === 0) {
+              return res.status(404).json({
+                success: false,
+                message: "User not found",
+              });
+            }
+
+            return res.json({
+              success: true,
+              message: "User deleted successfully",
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+app.post( "/api/admin/users",
+  authenticateToken,
+  authorizeRoles("admin"),
+  async (req, res) => {
+    try {
+      const { fullname, email, password, role, organization_id } = req.body;
+
+      if (!fullname || !email || !password || !role) {
+        return res.status(400).json({
+          success: false,
+          message: "Full name, email, password, and role are required",
+        });
+      }
+
+      const normalizedEmail = String(email).trim().toLowerCase();
+      const allowedRoles = ["admin", "trainer", "educator", "principal"];
+
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid role",
+        });
+      }
+
+      dbms.dbquery(
+        "SELECT email FROM users WHERE email = ?",
+        [normalizedEmail],
+        async (checkErr, existingUsers) => {
+          if (checkErr) {
+            console.error("ADMIN CREATE USER CHECK ERROR:", checkErr);
+            return res.status(500).json({
+              success: false,
+              message: "Database error while checking user",
+            });
+          }
+
+          if (existingUsers && existingUsers.length > 0) {
+            return res.status(409).json({
+              success: false,
+              message: "An account with this email already exists",
+            });
+          }
+
+          const hashedPassword = await bcrypt.hash(password, 10);
+
+          dbms.dbquery(
+            "INSERT INTO users (email, password) VALUES (?, ?)",
+            [normalizedEmail, hashedPassword],
+            (userErr) => {
+              if (userErr) {
+                console.error("ADMIN CREATE USER INSERT ERROR:", userErr);
+                return res.status(500).json({
+                  success: false,
+                  message: "Failed to create user account",
+                });
+              }
+
+              dbms.dbquery(
+                `
+                INSERT INTO profile (email, fullname, role, organization_id)
+                VALUES (?, ?, ?, ?)
+                `,
+                [normalizedEmail, fullname, role, organization_id || null],
+                (profileErr) => {
+                  if (profileErr) {
+                    console.error("ADMIN CREATE PROFILE INSERT ERROR:", profileErr);
+                    return res.status(500).json({
+                      success: false,
+                      message: "User created, but profile creation failed",
+                    });
+                  }
+
+                  return res.status(201).json({
+                    success: true,
+                    message: "User created successfully",
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    } catch (error) {
+      console.error("ADMIN CREATE USER ROUTE ERROR:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
 //---END ADMIN Routes---
 
 //---Principal Routes---
 app.get( "/api/principal/dashboard",
   authenticateToken,
-  authorizeRoles("principal"),
+  authorizeRoles("principal", "admin"),
   (req, res) => {
     const orgQuery = `
       SELECT id, name
@@ -2092,7 +2263,7 @@ app.get( "/api/principal/dashboard",
 
 app.get("/api/principal/educators",
   authenticateToken,
-  authorizeRoles("principal"),
+  authorizeRoles("principal", "admin"),
   (req, res) => {
     const orgQuery = `
       SELECT id
@@ -2173,7 +2344,7 @@ app.get("/api/principal/educators",
 
 app.get("/api/principal/educator-performance",
   authenticateToken,
-  authorizeRoles("principal"),
+  authorizeRoles("principal", "admin"),
   (req, res) => {
     const organizationQuery = `
       SELECT id
@@ -2248,7 +2419,7 @@ app.get("/api/principal/educator-performance",
 
 app.get( "/api/principal/courses",
   authenticateToken,
-  authorizeRoles("principal"),
+  authorizeRoles("principal", "admin"),
   (req, res) => {
     const query = `
       SELECT
@@ -2283,7 +2454,7 @@ app.get( "/api/principal/courses",
 
 app.post( "/api/principal/assign-course",
   authenticateToken,
-  authorizeRoles("principal"),
+  authorizeRoles("principal", "admin"),
   (req, res) => {
     const { educatorEmail, courseId } = req.body;
 
@@ -2517,7 +2688,7 @@ app.get("/api/db-test", (req, res) => {
 app.use(express.static(path.join(__dirname, "../build")));
 
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, "..build", "index.html"));
+  res.sendFile(path.join(__dirname, "../build", "index.html"));
 });
 
 if (require.main === module){

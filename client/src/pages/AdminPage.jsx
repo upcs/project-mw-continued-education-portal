@@ -8,6 +8,8 @@ import {
   createOrganization,
   assignPrincipalToOrganization,
   assignUserToOrganization,
+  createAdminUser,
+  deleteAdminUser,
 } from "../api/admin";
 
 export default function AdminPage() {
@@ -25,6 +27,16 @@ export default function AdminPage() {
   const [newOrganizationName, setNewOrganizationName] = useState("");
   const [newOrganizationCode, setNewOrganizationCode] = useState("");
   const [creatingOrganization, setCreatingOrganization] = useState(false);
+
+  const [newUser, setNewUser] = useState({
+    fullname: "",
+    email: "",
+    password: "",
+    role: "educator",
+    organizationId: "",
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [deletingEmail, setDeletingEmail] = useState("");
 
   const loadAdminData = async () => {
     try {
@@ -139,6 +151,77 @@ export default function AdminPage() {
     }
   };
 
+  const handleNewUserChange = (e) => {
+    const { name, value } = e.target;
+    setNewUser((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+
+    if (!newUser.fullname || !newUser.email || !newUser.password || !newUser.role) {
+      setError("Full name, email, password, and role are required.");
+      return;
+    }
+
+    try {
+      setCreatingUser(true);
+      setError("");
+      setMessage("");
+
+      await createAdminUser({
+        fullname: newUser.fullname.trim(),
+        email: newUser.email.trim().toLowerCase(),
+        password: newUser.password,
+        role: newUser.role,
+        organizationId: newUser.organizationId ? Number(newUser.organizationId) : null,
+      });
+
+      setMessage("User created successfully.");
+      setNewUser({
+        fullname: "",
+        email: "",
+        password: "",
+        role: "educator",
+        organizationId: "",
+      });
+
+      await loadAdminData();
+    } catch (err) {
+      console.error("CREATE USER ERROR:", err);
+      setError(err?.response?.data?.message || "Failed to create user.");
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (email) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${email}? This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingEmail(email);
+      setError("");
+      setMessage("");
+
+      await deleteAdminUser(email);
+
+      setMessage(`Deleted user ${email}`);
+      await loadAdminData();
+    } catch (err) {
+      console.error("DELETE USER ERROR:", err);
+      setError(err?.response?.data?.message || "Failed to delete user.");
+    } finally {
+      setDeletingEmail("");
+    }
+  };
+
   if (loading) {
     return <div className="admin-page">Loading admin page...</div>;
   }
@@ -146,7 +229,7 @@ export default function AdminPage() {
   return (
     <section className="admin-page">
       <header className="admin-page__header">
-        <h1>Admin Dashboard</h1>
+        <h1>Admin Control Panel</h1>
         <p>Manage users, roles, organizations, and principal assignments.</p>
       </header>
 
@@ -156,96 +239,65 @@ export default function AdminPage() {
       <div className="admin-stats-grid">
         <AdminStatCard title="Total Users" value={stats?.totalUsers || 0} />
         <AdminStatCard title="Total Courses" value={stats?.totalCourses || 0} />
-        <AdminStatCard
-          title="Organizations"
-          value={stats?.totalOrganizations || 0}
-        />
+        <AdminStatCard title="Organizations" value={stats?.totalOrganizations || 0} />
         <AdminStatCard title="Principals" value={stats?.totalPrincipals || 0} />
       </div>
 
       <div className="admin-page__grid">
         <section className="admin-card">
           <div className="admin-card__header">
-            <h2>User Management</h2>
+            <h2>Create User Account</h2>
           </div>
 
-          <div className="admin-controls">
+          <form className="admin-user-create" onSubmit={handleCreateUser}>
             <input
               type="text"
-              placeholder="Search by name or email"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              name="fullname"
+              placeholder="Full name"
+              value={newUser.fullname}
+              onChange={handleNewUserChange}
             />
-
+            <input
+              type="email"
+              name="email"
+              placeholder="Email"
+              value={newUser.email}
+              onChange={handleNewUserChange}
+            />
+            <input
+              type="password"
+              name="password"
+              placeholder="Temporary password"
+              value={newUser.password}
+              onChange={handleNewUserChange}
+            />
             <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              name="role"
+              value={newUser.role}
+              onChange={handleNewUserChange}
             >
-              <option value="all">All Roles</option>
-              <option value="admin">Admin</option>
-              <option value="trainer">Trainer</option>
               <option value="educator">Educator</option>
+              <option value="trainer">Trainer</option>
               <option value="principal">Principal</option>
+              <option value="admin">Admin</option>
             </select>
-          </div>
+            <select
+              name="organizationId"
+              value={newUser.organizationId}
+              onChange={handleNewUserChange}
+            >
+              <option value="">No Organization</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
 
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Organization</th>
-                  <th>Change Role</th>
-                  <th>Assign Organization</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.email}>
-                    <td>{user.fullname || "—"}</td>
-                    <td>{user.email}</td>
-                    <td className="admin-role-cell">{user.role || "educator"}</td>
-                    <td>{user.organization || "—"}</td>
-                    <td>
-                      <select
-                        value={user.role || "educator"}
-                        onChange={(e) => handleRoleChange(user.email, e.target.value)}
-                      >
-                        <option value="educator">Educator</option>
-                        <option value="trainer">Trainer</option>
-                        <option value="principal">Principal</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        value={user.organization_id || ""}
-                        onChange={(e) =>
-                          handleAssignOrganization(
-                            user.email,
-                            e.target.value ? Number(e.target.value) : null
-                          )
-                        }
-                      >
-                        <option value="">No Organization</option>
-                        {organizations.map((org) => (
-                          <option key={org.id} value={org.id}>
-                            {org.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {filteredUsers.length === 0 && (
-              <p className="admin-empty">No matching users found.</p>
-            )}
-          </div>
+            <button type="submit" disabled={creatingUser}>
+              {creatingUser ? "Creating..." : "Create User"}
+            </button>
+          </form>
         </section>
 
         <section className="admin-card">
@@ -287,6 +339,101 @@ export default function AdminPage() {
           </div>
         </section>
       </div>
+
+      <section className="admin-card">
+        <div className="admin-card__header">
+          <h2>User Management</h2>
+        </div>
+
+        <div className="admin-controls">
+          <input
+            type="text"
+            placeholder="Search by name or email"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="all">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="trainer">Trainer</option>
+            <option value="educator">Educator</option>
+            <option value="principal">Principal</option>
+          </select>
+        </div>
+
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Organization</th>
+                <th>Change Role</th>
+                <th>Assign Organization</th>
+                <th>Delete</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.map((user) => (
+                <tr key={user.email}>
+                  <td>{user.fullname || "—"}</td>
+                  <td>{user.email}</td>
+                  <td className="admin-role-cell">{user.role || "educator"}</td>
+                  <td>{user.organization || "—"}</td>
+                  <td>
+                    <select
+                      value={user.role || "educator"}
+                      onChange={(e) => handleRoleChange(user.email, e.target.value)}
+                    >
+                      <option value="educator">Educator</option>
+                      <option value="trainer">Trainer</option>
+                      <option value="principal">Principal</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      value={user.organization_id || ""}
+                      onChange={(e) =>
+                        handleAssignOrganization(
+                          user.email,
+                          e.target.value ? Number(e.target.value) : null
+                        )
+                      }
+                    >
+                      <option value="">No Organization</option>
+                      {organizations.map((org) => (
+                        <option key={org.id} value={org.id}>
+                          {org.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="admin-delete-btn"
+                      onClick={() => handleDeleteUser(user.email)}
+                      disabled={deletingEmail === user.email}
+                    >
+                      {deletingEmail === user.email ? "Deleting..." : "Delete"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {filteredUsers.length === 0 && (
+            <p className="admin-empty">No matching users found.</p>
+          )}
+        </div>
+      </section>
     </section>
   );
 }

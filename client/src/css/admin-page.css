@@ -192,3 +192,124 @@
     align-items: stretch;
   }
 }
+
+.admin-user-create,
+.admin-org-create {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.admin-user-create input,
+.admin-user-create select,
+.admin-org-create input,
+.admin-org-create select,
+.admin-controls input,
+.admin-controls select,
+.admin-table select {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.95rem;
+}
+
+.admin-user-create button,
+.admin-org-create button,
+.admin-org-row__controls button,
+.admin-delete-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-user-create button,
+.admin-org-create button,
+.admin-org-row__controls button {
+  background: #111827;
+  color: #fff;
+}
+
+.admin-delete-btn {
+  background: #fee4e2;
+  color: #b42318;
+}
+
+.admin-delete-btn:disabled,
+.admin-user-create button:disabled,
+.admin-org-create button:disabled,
+.admin-org-row__controls button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.admin-card {
+  background: #fff;
+  border: 1px solid #eaecf0;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 10px 20px rgba(16, 24, 40, 0.04);
+}
+
+.admin-card__header h2 {
+  margin: 0;
+}
+
+.admin-page__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.admin-controls {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.85rem 0.75rem;
+  border-bottom: 1px solid #eaecf0;
+  text-align: left;
+}
+
+.admin-empty {
+  color: #667085;
+  margin-top: 1rem;
+}
+
+.admin-page__message {
+  background: #ecfdf3;
+  border: 1px solid #abefc6;
+  color: #027a48;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+}
+
+.admin-page__error {
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  color: #b42318;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+}
+
+@media (max-width: 900px) {
+  .admin-page__grid {
+    grid-template-columns: 1fr;
+  }
+}
