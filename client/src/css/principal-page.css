@@ -1,0 +1,137 @@
+.principal-page {
+  padding: 24px;
+}
+
+.principal-page__header {
+  margin-bottom: 24px;
+}
+
+.principal-page__header h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.principal-page__header p {
+  margin: 0;
+  color: #667085;
+}
+
+.principal-page__message,
+.principal-page__error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.principal-page__message {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.principal-page__error {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.principal-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.principal-stat-card {
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.principal-stat-card__title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #667085;
+}
+
+.principal-stat-card__value {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.principal-page__grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.principal-card {
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.principal-card h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+}
+
+.principal-assign-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.principal-assign-form select,
+.principal-assign-form button {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.principal-assign-form select {
+  border: 1px solid #d0d5dd;
+}
+
+.principal-assign-form button {
+  border: none;
+  background: #111827;
+  color: white;
+  cursor: pointer;
+}
+
+.principal-assign-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.principal-table-wrap {
+  overflow-x: auto;
+}
+
+.principal-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.principal-table th,
+.principal-table td {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid #eaecf0;
+  font-size: 14px;
+}
+
+.principal-table__status {
+  text-transform: capitalize;
+}
+
+@media (max-width: 1100px) {
+  .principal-page__grid {
+    grid-template-columns: 1fr;
+  }
+}

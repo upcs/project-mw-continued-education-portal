@@ -124,9 +124,8 @@ INSERT INTO `profile` (`id`, `photo`, `fullname`, `role`, `email`, `whatsapp`, `
 --
 -- Table structure for table `quiz_submissions`
 --
-
 CREATE TABLE `quiz_submissions` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `module_id` int(11) NOT NULL,
   `course_id` int(11) NOT NULL,
   `user_email` varchar(255) NOT NULL,
@@ -138,10 +137,21 @@ CREATE TABLE `quiz_submissions` (
   `feedback` text DEFAULT NULL,
   `reviewed_by_email` varchar(255) DEFAULT '',
   `reviewed_at` datetime DEFAULT NULL,
+  `attempt_number` int NOT NULL DEFAULT 1,
+  `is_latest` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_quiz_submissions_module_id` (`module_id`),
+  KEY `idx_quiz_submissions_course_id` (`course_id`),
+  KEY `idx_quiz_submissions_user_email` (`user_email`),
+  KEY `idx_quiz_submissions_latest` (`is_latest`),
+  KEY `idx_quiz_submissions_module_user_attempt` (`module_id`, `user_email`, `attempt_number`),
+  CONSTRAINT `fk_quiz_submissions_module`
+    FOREIGN KEY (`module_id`) REFERENCES `course_modules`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_quiz_submissions_course`
+    FOREIGN KEY (`course_id`) REFERENCES `courses`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
-
 -- --------------------------------------------------------
 
 --

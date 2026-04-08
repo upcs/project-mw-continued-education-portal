@@ -8,6 +8,10 @@ import {
   getMySubmissions,
   submitQuiz,
 } from "../api/submissions";
+import {
+  markCourseStarted,
+  checkCourseCompletion,
+} from "../api/courses";
 
 export default function CourseDetails() {
   const { id } = useParams();
@@ -64,7 +68,9 @@ export default function CourseDetails() {
       setModules(modulesRes.data.data || []);
     } catch (err) {
       console.error("COURSE DETAILS LOAD ERROR:", err);
-      setError(err?.response?.data?.message || err.message || "Something went wrong");
+      setError(
+        err?.response?.data?.message || err.message || "Something went wrong"
+      );
     } finally {
       setLoading(false);
     }
@@ -73,6 +79,20 @@ export default function CourseDetails() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const startCourseIfNeeded = async () => {
+      if (!isEducator || !id) return;
+
+      try {
+        await markCourseStarted(id);
+      } catch (err) {
+        console.error("MARK COURSE STARTED ERROR:", err);
+      }
+    };
+
+    startCourseIfNeeded();
+  }, [id, isEducator]);
 
   useEffect(() => {
     const loadMySubmissions = async () => {
@@ -178,7 +198,9 @@ export default function CourseDetails() {
       closeAddForm();
     } catch (err) {
       console.error("ADD MODULE ERROR:", err);
-      setAddMessage(err?.response?.data?.message || err.message || "Failed to add item.");
+      setAddMessage(
+        err?.response?.data?.message || err.message || "Failed to add item."
+      );
     } finally {
       setAddingItem(false);
     }
@@ -206,6 +228,8 @@ export default function CourseDetails() {
         throw new Error(data?.message || "Failed to submit quiz");
       }
 
+      await checkCourseCompletion(id);
+
       setQuizMessage("Quiz submitted successfully.");
       setQuizAnswer("");
       setQuizFile(null);
@@ -214,7 +238,9 @@ export default function CourseDetails() {
       setMySubmissions(refreshed?.data?.data || []);
     } catch (err) {
       console.error("QUIZ SUBMIT ERROR:", err);
-      setQuizError(err?.response?.data?.message || err.message || "Failed to submit quiz.");
+      setQuizError(
+        err?.response?.data?.message || err.message || "Failed to submit quiz."
+      );
     } finally {
       setQuizSubmitting(false);
     }
@@ -243,25 +269,29 @@ export default function CourseDetails() {
     }
 
     if (isPdf) {
-      return (
-        <iframe
-          src={fileUrl}
-          title={title}
-          className="lesson-view__pdf"
-        />
-      );
+      return <iframe src={fileUrl} title={title} className="lesson-view__pdf" />;
     }
 
     if (isText) {
       return (
-        <a href={fileUrl} target="_blank" rel="noreferrer" className="lesson-view__file-link">
+        <a
+          href={fileUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="lesson-view__file-link"
+        >
           Open text file
         </a>
       );
     }
 
     return (
-      <a href={fileUrl} target="_blank" rel="noreferrer" className="lesson-view__file-link">
+      <a
+        href={fileUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="lesson-view__file-link"
+      >
         Open uploaded file
       </a>
     );
@@ -277,8 +307,14 @@ export default function CourseDetails() {
         {activeEducatorSubmission ? (
           <div className="quiz-panel__submissionStatus">
             <p><strong>Status:</strong> {activeEducatorSubmission.status}</p>
-            <p><strong>Grade:</strong> {activeEducatorSubmission.grade || "Not graded yet"}</p>
-            <p><strong>Feedback:</strong> {activeEducatorSubmission.feedback || "No feedback yet"}</p>
+            <p>
+              <strong>Grade:</strong>{" "}
+              {activeEducatorSubmission.grade || "Not graded yet"}
+            </p>
+            <p>
+              <strong>Feedback:</strong>{" "}
+              {activeEducatorSubmission.feedback || "No feedback yet"}
+            </p>
 
             {activeEducatorSubmission.file_url && (
               <a
@@ -308,7 +344,11 @@ export default function CourseDetails() {
             {quizMessage && <p className="quiz-panel__success">{quizMessage}</p>}
             {quizError && <p className="quiz-panel__error">{quizError}</p>}
 
-            <button type="submit" disabled={quizSubmitting} className="quiz-panel__submit">
+            <button
+              type="submit"
+              disabled={quizSubmitting}
+              className="quiz-panel__submit"
+            >
               {quizSubmitting ? "Submitting..." : "Submit Quiz"}
             </button>
           </form>
@@ -367,8 +407,16 @@ export default function CourseDetails() {
             <p className="lesson-view__eyebrow">Main Lesson</p>
             <h1>{course.title}</h1>
             <p className="lesson-view__meta">
-              {course.instructor} • {course.lessons ?? 0} lessons • {course.quizzes ?? 0} quizzes
+              {course.instructor} • {course.lessons ?? 0} lessons •{" "}
+              {course.quizzes ?? 0} quizzes
             </p>
+
+            {isEducator && course.assignment_status && (
+              <p className="lesson-view__assignmentMeta">
+                Status: {course.assignment_status}
+                {course.source ? ` • Source: ${course.source}` : ""}
+              </p>
+            )}
           </div>
         </div>
 
@@ -425,7 +473,11 @@ export default function CourseDetails() {
           </div>
         )}
 
-        {renderCourseFile(activeModule.file_url, activeModule.file_type, activeModule.title)}
+        {renderCourseFile(
+          activeModule.file_url,
+          activeModule.file_type,
+          activeModule.title
+        )}
 
         {!activeModule.content && !activeModule.file_url && (
           <div className="lesson-view__emptyState">
@@ -470,7 +522,9 @@ export default function CourseDetails() {
 
         <div className="lesson-sidebar__list">
           <button
-            className={`lesson-sidebar__item ${activeModuleId === "overview" ? "is-active" : ""}`}
+            className={`lesson-sidebar__item ${
+              activeModuleId === "overview" ? "is-active" : ""
+            }`}
             onClick={() => setActiveModuleId("overview")}
             type="button"
           >
@@ -501,9 +555,7 @@ export default function CourseDetails() {
           ))}
 
           {modules.length === 0 && (
-            <div className="lesson-sidebar__empty">
-              No extra modules yet
-            </div>
+            <div className="lesson-sidebar__empty">No extra modules yet</div>
           )}
         </div>
 
@@ -568,9 +620,7 @@ export default function CourseDetails() {
         )}
       </aside>
 
-      <main className="lesson-view">
-        {renderModuleContent()}
-      </main>
+      <main className="lesson-view">{renderModuleContent()}</main>
     </section>
   );
 }

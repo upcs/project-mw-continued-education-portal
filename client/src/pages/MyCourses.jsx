@@ -18,14 +18,14 @@ export default function MyCourses() {
         setLoading(true);
         setError("");
 
-        const response = await API.get("/courses/enrolled");
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.message || "Failed to fetch enrolled courses");
+        const { data } = await API.get("/courses/enrolled");
+        
+        if (!data?.success) {
+            throw new Error(data?.message || "Failed to fetch enrolled courses");
         }
 
-        setCourses(result.data || []);
+        setCourses(data.data || []);
+
       } catch (err) {
         setError(err.message || "Something went wrong");
       } finally {
@@ -39,7 +39,7 @@ export default function MyCourses() {
   const stats = useMemo(() => {
     const totalCourses = courses.length;
     const completedCourses = courses.filter(
-      (course) => Number(course.progress) >= 100
+      (course) => course.assignment_status === "completed"
     ).length;
 
     const totalProgress = courses.reduce(
@@ -105,21 +105,28 @@ export default function MyCourses() {
             </section>
 
             <section className="courses-block">
-              <h2 className="courses-block__title">All Status</h2>
+              <h2 className="courses-block__title">Learning Summary</h2>
+
               <div className="status-box">
+                
                 <div className="status-box__item">
-                  {stats.completedCourses}/{stats.totalCourses} courses
+                  {completedCourses}/{stats.totalCourses} completed
                 </div>
+
                 <div className="status-box__item">
-                  {stats.totalQuizzes} quizzes
+                  {courses.filter(c => c.assignment_status === "assigned").length} assigned
                 </div>
+
                 <div className="status-box__item">
-                  {stats.totalLessons} lessons
+                  {course.filter(c => c.assignment_status === "in_progress").length} in progress
                 </div>
+                
                 <div className="status-box__item">
                   {stats.averageProgress}% avg progress
                 </div>
+            
               </div>
+            
             </section>
 
             <section className="courses-block">
@@ -133,7 +140,11 @@ export default function MyCourses() {
                 </button>
               </div>
 
-              <EnrolledList courses={courses} />
+              <EnrolledList
+                courses={courses}
+                onCourseClick={(id) => navigate(`/course-details/${id}`)} 
+              />
+
             </section>
           </div>
 

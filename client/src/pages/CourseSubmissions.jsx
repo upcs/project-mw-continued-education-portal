@@ -1,13 +1,23 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { getCourseSubmissions, gradeSubmission } from "../api/submissions";
 import "../css/course-submissions.css";
+import { useReviewBadge } from "../context/ReviewBadgeContext";
 
 export default function CourseSubmissions() {
+  const { refreshPendingReviews } = useReviewBadge();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const initialModuleFilter = searchParams.get("module") || "all";
+  const initialStatusFilter = searchParams.get("status") || "all";
+
+  const [moduleFilter, setModuleFilter] = useState(initialModuleFilter);
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
 
   const loadSubmissions = async () => {
     try {
@@ -28,10 +38,37 @@ export default function CourseSubmissions() {
     loadSubmissions();
   }, [id]);
 
+  const moduleOptions = useMemo(() => {
+    const unique = new Map();
+
+    submissions.forEach((item) => {
+      unique.set(item.module_id, item.module_title || `Module #${item.module_id}`);
+    });
+
+    return Array.from(unique.entries()).map(([value, label]) => ({
+      value: String(value),
+      label,
+    }));
+  }, [submissions]);
+
+  const filteredSubmissions = useMemo(() => {
+    return submissions.filter((item) => {
+      const moduleMatch =
+        moduleFilter === "all" || String(item.module_id) === moduleFilter;
+
+      const statusMatch =
+        statusFilter === "all" || item.status === statusFilter;
+
+      return moduleMatch && statusMatch;
+    });
+  }, [submissions, moduleFilter, statusFilter]);
+
   const handleGrade = async (submissionId, payload) => {
     try {
       await gradeSubmission(submissionId, payload);
       await loadSubmissions();
+      await refreshPendingReviews();
+
       return { success: true };
     } catch (err) {
       console.error("SAVE GRADE ERROR:", err);
@@ -52,13 +89,37 @@ export default function CourseSubmissions() {
         <p>Review educator quiz submissions, assign grades, and leave feedback.</p>
       </div>
 
-      {submissions.length === 0 ? (
+      <div className="course-submissions-page__filters">
+        <div className="course-submissions-page__filter">
+          <label>Filter by Module</label>
+          <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
+            <option value="all">All Modules</option>
+            {moduleOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="course-submissions-page__filter">
+          <label>Filter by Status</label>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="all">All Statuses</option>
+            <option value="submitted">Submitted</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
+
+      {filteredSubmissions.length === 0 ? (
         <div className="submission-review-card">
-          <p>No submissions found.</p>
+          <p>No submissions found for the selected filters.</p>
         </div>
       ) : (
         <div className="course-submissions-page__list">
-          {submissions.map((item) => (
+          {filteredSubmissions.map((item) => (
             <SubmissionReviewCard
               key={item.id}
               submission={item}
@@ -111,6 +172,9 @@ function SubmissionReviewCard({ submission, onSave }) {
           </p>
           <p className="submission-review-card__meta">
             <strong>Educator:</strong> {submission.user_email}
+          </p>
+          <p className="submission-review-card__meta">
+            <strong>Attempt:</strong> {submission.attempt_number || 1}
           </p>
           <p className="submission-review-card__meta">
             <strong>Submitted:</strong> {submission.created_at || "N/A"}

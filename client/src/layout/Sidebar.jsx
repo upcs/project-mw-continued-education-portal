@@ -12,14 +12,16 @@ import {
   Shield,
   Building2,
   FileText,
+  ClipboardCheck,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useReviewBadge } from "../context/ReviewBadgeContext";
 import "../css/sidebar.css";
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-
+  const { pendingReviews } = useReviewBadge();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -34,6 +36,13 @@ export default function Sidebar() {
 
     if (user?.role === "admin" || user?.role === "trainer") {
       baseItems.splice(3, 0, { icon: Upload, id: "upload", path: "/upload" });
+
+      baseItems.push({
+        icon: ClipboardCheck,
+        id: "reviews",
+        path: "/reviews",
+        badge: pendingReviews > 0 ? pendingReviews : null,
+      });
     }
 
     if (user?.role === "admin") {
@@ -66,7 +75,7 @@ export default function Sidebar() {
     }
 
     return baseItems;
-  }, [user]);
+  }, [user, pendingReviews]);
 
   const displayUser = {
     name:
@@ -130,7 +139,14 @@ export default function Sidebar() {
               }
               title={item.id}
             >
-              <Icon size={24} />
+              <div className="sidebar__iconWrap">
+                <Icon size={24} />
+                {item.badge ? (
+                  <span className="sidebar__badge">
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                ) : null}
+              </div>
             </NavLink>
           );
         })}

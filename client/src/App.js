@@ -18,6 +18,7 @@ import OrganizationsPage from "./pages/OrganizationsPage";
 import EducatorProgressPage from "./pages/EducatorProgressPage";
 import MySubmissions from "./pages/MySubmissions";
 import CourseSubmissions from "./pages/CourseSubmissions";
+import ReviewsRedirectPage from "./pages/ReviewsRedirectPage";
 
 function App() {
   return (
@@ -34,6 +35,15 @@ function App() {
             </ProtectedRoute>
           }
         >
+          <Route
+            path="/reviews"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "trainer"]}>
+                <ReviewsRedirectPage />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/catalog" element={<CourseCatalog />} />
           <Route path="/my-courses" element={<MyCourses />} />
@@ -58,44 +68,44 @@ function App() {
                 <AdminPage />
               </ProtectedRoute>
             }
-            />
-          
-            <Route
+          />
+
+          <Route
             path="/organizations"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <OrganizationsPage />
               </ProtectedRoute>
             }
-            />
+          />
 
-            <Route
+          <Route
             path="/educator-progress"
             element={
               <ProtectedRoute allowedRoles={["principal"]}>
                 <EducatorProgressPage />
               </ProtectedRoute>
             }
-            />
-            <Route
-            path="/my-submissions"
-            element={
-           <ProtectedRoute allowedRoles={["educator"]}>
-            <MySubmissions />
-           </ProtectedRoute>
-            }
-            />
-
-            <Route
-            path="/course-submissions/:id"
-            element={
-            <ProtectedRoute allowedRoles={["admin", "trainer"]}>
-            <CourseSubmissions />
-            </ProtectedRoute>
-             }
           />
 
-          </Route>
+          <Route
+            path="/my-submissions"
+            element={
+              <ProtectedRoute allowedRoles={["educator"]}>
+                <MySubmissions />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/course-submissions/:id"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "trainer"]}>
+                <CourseSubmissions />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
