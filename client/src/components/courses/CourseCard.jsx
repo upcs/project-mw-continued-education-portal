@@ -9,6 +9,11 @@ export default function CourseCard({
   lessons,
   quizzes,
   thumbnail,
+  actionLabel = "",
+  onAction = null,
+  actionDisabled = false,
+  statusLabel = "",
+  sourceLabel = "",
 }) {
   const navigate = useNavigate();
 
@@ -45,8 +50,37 @@ export default function CourseCard({
         <div className="course-card__footer">
           <span>{lessons} lessons</span>
           <span>•</span>
-          <span>{quizzes} quiz</span>
+          <span>{quizzes} {Number(quizzes) === 1 ? "quiz" : "quizzes"}</span>
         </div>
+
+        {(statusLabel || sourceLabel) && (
+          <div className="course-card__details">
+            {statusLabel && (
+              <p className="course-card__detail">
+                <strong>Status:</strong> {statusLabel}
+              </p>
+            )}
+            {sourceLabel && (
+              <p className="course-card__detail">
+                <strong>Source:</strong> {sourceLabel}
+              </p>
+            )}
+          </div>
+        )}
+
+        {actionLabel && onAction && (
+          <button
+            type="button"
+            className="course-card__action"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAction();
+            }}
+            disabled={actionDisabled}
+          >
+            {actionLabel}
+          </button>
+        )}
       </div>
     </article>
   );

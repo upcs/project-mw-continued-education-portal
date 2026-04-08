@@ -135,3 +135,29 @@
   opacity: 0.7;
   cursor: not-allowed;
 }
+
+.course-submissions-page__filters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.course-submissions-page__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.course-submissions-page__filter label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.course-submissions-page__filter select {
+  padding: 12px 14px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  font-size: 14px;
+}

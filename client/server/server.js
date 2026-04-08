@@ -540,7 +540,44 @@ app.get("/api/courses", (req, res) => {
 });
 
 
-app.get("/api/courses/enrolled", (req, res) => {
+app.get("/api/courses/enrolled", authenticateToken, (req, res) => {
+  if (req.user.role === "educator") {
+    const query = `
+      SELECT
+        c.id,
+        c.title,
+        c.instructor,
+        c.lessons,
+        c.quizzes,
+        c.progress,
+        c.thumbnail,
+        c.description,
+        eca.status AS assignment_status,
+        eca.assigned_at
+      FROM educator_course_assignments eca
+      LEFT JOIN courses c ON c.id = eca.course_id
+      WHERE eca.educator_email = ?
+      ORDER BY eca.assigned_at DESC
+    `;
+
+    dbms.dbquery(query, [req.user.email], (err, response) => {
+      if (err) {
+        console.error("EDUCATOR ASSIGNED COURSES ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch assigned courses",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: response || [],
+      });
+    });
+
+    return;
+  }
+
   const query = `
     SELECT
       id,
@@ -570,6 +607,103 @@ app.get("/api/courses/enrolled", (req, res) => {
     });
   });
 });
+
+app.post( "/api/courses/:courseId/enroll",
+  authenticateToken,
+  authorizeRoles("educator"),
+  (req, res) => {
+    const { courseId } = req.params;
+
+    const profileQuery = `
+      SELECT organization_id
+      FROM profile
+      WHERE email = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(profileQuery, [req.user.email], (profileErr, profileRes) => {
+      if (profileErr) {
+        console.error("SELF ENROLL PROFILE ERROR:", profileErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate educator profile",
+        });
+      }
+
+      if (!profileRes || profileRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Educator profile not found",
+        });
+      }
+
+      const organizationId = profileRes[0].organization_id || null;
+
+      const courseQuery = `
+        SELECT id
+        FROM courses
+        WHERE id = ?
+        LIMIT 1
+      `;
+
+      dbms.dbquery(courseQuery, [courseId], (courseErr, courseRes) => {
+        if (courseErr) {
+          console.error("SELF ENROLL COURSE ERROR:", courseErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to validate course",
+          });
+        }
+
+        if (!courseRes || courseRes.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Course not found",
+          });
+        }
+
+        const insertQuery = `
+          INSERT INTO educator_course_assignments (
+            educator_email,
+            course_id,
+            assigned_by_email,
+            organization_id,
+            status,
+            source
+          )
+          VALUES (?, ?, ?, ?, 'in_progress', 'self')
+        `;
+
+        dbms.dbquery(
+          insertQuery,
+          [req.user.email, courseId, req.user.email, organizationId],
+          (insertErr) => {
+            if (insertErr) {
+              console.error("SELF ENROLL INSERT ERROR:", insertErr);
+
+              if (insertErr.code === "ER_DUP_ENTRY") {
+                return res.status(400).json({
+                  success: false,
+                  message: "You are already enrolled in this course",
+                });
+              }
+
+              return res.status(500).json({
+                success: false,
+                message: "Failed to enroll in course",
+              });
+            }
+
+            return res.json({
+              success: true,
+              message: "Successfully enrolled in course",
+            });
+          }
+        );
+      });
+    });
+  }
+);
 
 app.get("/api/courses/:id", (req, res) => {
   const { id } = req.params;
@@ -636,6 +770,130 @@ app.get("/api/courses/:id", (req, res) => {
     });
   });
 });
+
+app.post( "/api/courses/:courseId/start",
+  authenticateToken,
+  authorizeRoles("educator"),
+  (req, res) => {
+    const { courseId } = req.params;
+
+    const query = `
+      UPDATE educator_course_assignments
+      SET status = 'in_progress'
+      WHERE educator_email = ?
+        AND course_id = ?
+        AND status = 'assigned'
+    `;
+
+    dbms.dbquery(query, [req.user.email, courseId], (err) => {
+      if (err) {
+        console.error("COURSE START ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to update course status",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Course marked as in progress",
+      });
+    });
+  }
+);
+
+app.post("/api/courses/:courseId/check-completion",
+  authenticateToken,
+  authorizeRoles("educator"),
+  (req, res) => {
+    const { courseId } = req.params;
+
+    const totalQuizzesQuery = `
+      SELECT COUNT(*) AS totalQuizzes
+      FROM course_modules
+      WHERE course_id = ? AND type = 'quiz'
+    `;
+
+    const submittedQuizzesQuery = `
+      SELECT COUNT(DISTINCT qs.module_id) AS submittedQuizzes
+      FROM quiz_submissions qs
+      INNER JOIN course_modules cm ON cm.id = qs.module_id
+      WHERE qs.user_email = ?
+        AND qs.is_latest = 1
+        AND cm.course_id = ?
+        AND cm.type = 'quiz'
+    `;
+
+    dbms.dbquery(totalQuizzesQuery, [courseId], (totalErr, totalRes) => {
+      if (totalErr) {
+        console.error("CHECK COMPLETION TOTAL QUIZZES ERROR:", totalErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to check completion",
+        });
+      }
+
+      dbms.dbquery(
+        submittedQuizzesQuery,
+        [req.user.email, courseId],
+        (submittedErr, submittedRes) => {
+          if (submittedErr) {
+            console.error("CHECK COMPLETION SUBMITTED QUIZZES ERROR:", submittedErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to check completion",
+            });
+          }
+
+          const totalQuizzes = totalRes?.[0]?.totalQuizzes || 0;
+          const submittedQuizzes = submittedRes?.[0]?.submittedQuizzes || 0;
+
+          const isCompleted =
+            totalQuizzes > 0 && submittedQuizzes >= totalQuizzes;
+
+          if (!isCompleted) {
+            return res.json({
+              success: true,
+              data: {
+                completed: false,
+                totalQuizzes,
+                submittedQuizzes,
+              },
+            });
+          }
+
+          const updateQuery = `
+            UPDATE educator_course_assignments
+            SET status = 'completed'
+            WHERE educator_email = ?
+              AND course_id = ?
+              AND status IN ('assigned', 'in_progress')
+          `;
+
+          dbms.dbquery(updateQuery, [req.user.email, courseId], (updateErr) => {
+            if (updateErr) {
+              console.error("CHECK COMPLETION UPDATE ERROR:", updateErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to update completion status",
+              });
+            }
+
+            return res.json({
+              success: true,
+              data: {
+                completed: true,
+                totalQuizzes,
+                submittedQuizzes,
+              },
+              message: "Course marked as completed",
+            });
+          });
+        }
+      );
+    });
+  }
+);
 
 app.get("/api/courses/:courseId/submissions",
   authenticateToken,
@@ -985,79 +1243,94 @@ app.post("/api/modules/:moduleId/submissions",
         });
       }
 
-      const existingQuery = `
-        SELECT id
+      const attemptQuery = `
+        SELECT COALESCE(MAX(attempt_number), 0) + 1 AS nextAttempt
         FROM quiz_submissions
         WHERE module_id = ? AND user_email = ?
-        LIMIT 1
       `;
 
-      dbms.dbquery(existingQuery, [module.id, req.user.email], (existingErr, existingRes) => {
-        if (existingErr) {
-          console.error("SUBMISSION CHECK ERROR:", existingErr);
+      dbms.dbquery(attemptQuery, [module.id, req.user.email], (attemptErr, attemptRes) => {
+        if (attemptErr) {
+          console.error("ATTEMPT LOOKUP ERROR:", attemptErr);
           return res.status(500).json({
             success: false,
-            message: "Failed to validate submission",
+            message: "Failed to determine submission version",
           });
         }
 
-        if (existingRes && existingRes.length > 0) {
-          return res.status(400).json({
-            success: false,
-            message: "You have already submitted this quiz",
-          });
-        }
+        const nextAttempt = attemptRes?.[0]?.nextAttempt || 1;
 
-        const insertQuery = `
-          INSERT INTO quiz_submissions (
-            module_id,
-            course_id,
-            user_email,
-            answer_text,
-            file_url,
-            file_type,
-            status,
-            grade,
-            feedback,
-            reviewed_by_email,
-            reviewed_at
-          )
-          VALUES (?, ?, ?, ?, ?, ?, 'submitted', '', '', '', NULL)
+        const clearLatestQuery = `
+          UPDATE quiz_submissions
+          SET is_latest = 0
+          WHERE module_id = ? AND user_email = ?
         `;
 
-        const values = [
-          module.id,
-          module.course_id,
-          req.user.email,
-          answerText || "",
-          fileUrl,
-          fileType,
-        ];
-
-        dbms.dbquery(insertQuery, values, (insertErr, insertRes) => {
-          if (insertErr) {
-            console.error("SUBMISSION INSERT ERROR:", insertErr);
+        dbms.dbquery(clearLatestQuery, [module.id, req.user.email], (clearErr) => {
+          if (clearErr) {
+            console.error("CLEAR LATEST ERROR:", clearErr);
             return res.status(500).json({
               success: false,
-              message: "Failed to submit quiz",
+              message: "Failed to prepare new submission",
             });
           }
 
-          return res.json({
-            success: true,
-            message: "Quiz submitted successfully",
-            data: {
-              id: insertRes.insertId,
-              module_id: module.id,
-              course_id: module.course_id,
-              user_email: req.user.email,
-              answer_text: answerText || "",
-              file_url: fileUrl,
-              file_type: fileType,
-              status: "submitted",
-              grade: "",
-              feedback: "",
-            },
+          const insertQuery = `
+            INSERT INTO quiz_submissions (
+              module_id,
+              course_id,
+              user_email,
+              answer_text,
+              file_url,
+              file_type,
+              status,
+              grade,
+              feedback,
+              reviewed_by_email,
+              reviewed_at,
+              attempt_number,
+              is_latest
+            )
+            VALUES (?, ?, ?, ?, ?, ?, 'submitted', '', '', '', NULL, ?, 1)
+          `;
+
+          const values = [
+            module.id,
+            module.course_id,
+            req.user.email,
+            answerText || "",
+            fileUrl,
+            fileType,
+            nextAttempt,
+          ];
+
+          dbms.dbquery(insertQuery, values, (insertErr, insertRes) => {
+            if (insertErr) {
+              console.error("SUBMISSION INSERT ERROR:", insertErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to submit quiz",
+              });
+            }
+
+            return res.json({
+              success: true,
+              message: `Quiz submitted successfully (Attempt ${nextAttempt})`,
+              data: {
+                id: insertRes.insertId,
+                module_id: module.id,
+                course_id: module.course_id,
+                user_email: req.user.email,
+                answer_text: answerText || "",
+                file_url: fileUrl,
+                file_type: fileType,
+                status: "submitted",
+                grade: "",
+                feedback: "",
+                attempt_number: nextAttempt,
+                is_latest: 1,
+              },
+            });
           });
         });
       });
@@ -1081,6 +1354,8 @@ app.get("/api/my-submissions", authenticateToken, (req, res) => {
       qs.reviewed_by_email,
       qs.reviewed_at,
       qs.created_at,
+      qs.attempt_number,
+      qs.is_latest,
       cm.title AS module_title,
       c.title AS course_title
     FROM quiz_submissions qs
@@ -1105,6 +1380,181 @@ app.get("/api/my-submissions", authenticateToken, (req, res) => {
     });
   });
 });
+
+app.get("/api/dashboard/educator-stats",
+  authenticateToken,
+  authorizeRoles("educator"),
+  (req, res) => {
+    const totalQuizzesQuery = `
+      SELECT COUNT(*) AS totalQuizzes
+      FROM course_modules
+      WHERE type = 'quiz'
+    `;
+
+    const submittedQuizzesQuery = `
+      SELECT COUNT(DISTINCT module_id) AS submittedQuizzes
+      FROM quiz_submissions
+      WHERE user_email = ? AND is_latest = 1
+    `;
+
+    const averageGradeQuery = `
+      SELECT AVG(CAST(grade AS DECIMAL(10,2))) AS averageGrade
+      FROM quiz_submissions
+      WHERE user_email = ?
+        AND grade REGEXP '^[0-9]+(\\.[0-9]+)?$'
+        AND is_latest = 1
+    `;
+
+    const latestSubmissionQuery = `
+      SELECT
+        qs.id,
+        qs.status,
+        qs.grade,
+        qs.feedback,
+        qs.created_at,
+        qs.module_id,
+        qs.course_id,
+        cm.title AS module_title,
+        c.title AS course_title
+      FROM quiz_submissions qs
+      LEFT JOIN course_modules cm ON qs.module_id = cm.id
+      LEFT JOIN courses c ON qs.course_id = c.id
+      WHERE qs.user_email = ? AND qs.is_latest = 1
+      ORDER BY qs.created_at DESC
+      LIMIT 1
+    `;
+
+    dbms.dbquery(totalQuizzesQuery, (totalErr, totalRes) => {
+      if (totalErr) {
+        console.error("EDUCATOR TOTAL QUIZZES ERROR:", totalErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load stats",
+        });
+      }
+
+      dbms.dbquery(
+        submittedQuizzesQuery,
+        [req.user.email],
+        (submittedErr, submittedRes) => {
+          if (submittedErr) {
+            console.error("EDUCATOR SUBMITTED QUIZZES ERROR:", submittedErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to load stats",
+            });
+          }
+
+          dbms.dbquery(
+            averageGradeQuery,
+            [req.user.email],
+            (gradeErr, gradeRes) => {
+              if (gradeErr) {
+                console.error("EDUCATOR AVERAGE GRADE ERROR:", gradeErr);
+                return res.status(500).json({
+                  success: false,
+                  message: "Failed to load stats",
+                });
+              }
+
+              dbms.dbquery(
+                latestSubmissionQuery,
+                [req.user.email],
+                (latestErr, latestRes) => {
+                  if (latestErr) {
+                    console.error("EDUCATOR LATEST SUBMISSION ERROR:", latestErr);
+                    return res.status(500).json({
+                      success: false,
+                      message: "Failed to load stats",
+                    });
+                  }
+
+                  const totalQuizzes = totalRes?.[0]?.totalQuizzes || 0;
+                  const submittedQuizzes =
+                    submittedRes?.[0]?.submittedQuizzes || 0;
+                  const averageGrade = gradeRes?.[0]?.averageGrade || 0;
+
+                  const completionPercentage =
+                    totalQuizzes > 0
+                      ? Math.round((submittedQuizzes / totalQuizzes) * 100)
+                      : 0;
+
+                  return res.json({
+                    success: true,
+                    data: {
+                      totalQuizzes,
+                      submittedQuizzes,
+                      completionPercentage,
+                      averageGrade: Number(averageGrade || 0).toFixed(2),
+                      latestSubmission: latestRes?.[0] || null,
+                    },
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  }
+);
+
+app.get("/api/dashboard/trainer-stats",
+  authenticateToken,
+  authorizeRoles("trainer", "admin"),
+  (req, res) => {
+    const pendingReviewsQuery = `
+      SELECT COUNT(*) AS pendingReviews
+      FROM quiz_submissions
+      WHERE status = 'submitted' AND is_latest = 1
+    `;
+
+    const pendingByCourseQuery = `
+      SELECT
+        qs.course_id,
+        c.title AS course_title,
+        COUNT(*) AS pendingCount
+      FROM quiz_submissions qs
+      LEFT JOIN courses c ON qs.course_id = c.id
+      WHERE qs.status = 'submitted' AND qs.is_latest = 1
+      GROUP BY qs.course_id, c.title
+      ORDER BY pendingCount DESC, qs.course_id ASC
+      LIMIT 5
+    `;
+
+    dbms.dbquery(pendingReviewsQuery, (countErr, countRes) => {
+      if (countErr) {
+        console.error("TRAINER STATS COUNT ERROR:", countErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load trainer stats",
+        });
+      }
+
+      dbms.dbquery(pendingByCourseQuery, (coursesErr, coursesRes) => {
+        if (coursesErr) {
+          console.error("TRAINER STATS COURSES ERROR:", coursesErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to load trainer stats",
+          });
+        }
+
+        const pendingReviews = countRes?.[0]?.pendingReviews || 0;
+        const topPendingCourses = coursesRes || [];
+
+        return res.json({
+          success: true,
+          data: {
+            pendingReviews,
+            topPendingCourses,
+            defaultPendingCourseId: topPendingCourses?.[0]?.course_id || null,
+          },
+        });
+      });
+    });
+  }
+);
 
 app.get("/api/profile/me", authenticateToken, (req, res) => {
   const query = `
@@ -1216,6 +1666,751 @@ app.post("/api/profile/upload-photo", authenticateToken, upload.single("photo"),
     });
   });
 });
+
+//---ADMIN Routes---
+
+app.get("/api/admin/stats",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const totalUsersQuery = `SELECT COUNT(*) AS totalUsers FROM users`;
+    const totalCoursesQuery = `SELECT COUNT(*) AS totalCourses FROM courses`;
+    const totalPrincipalsQuery = `
+      SELECT COUNT(*) AS totalPrincipals
+      FROM profile
+      WHERE role = 'principal'
+    `;
+    const totalOrganizationsQuery = `
+      SELECT COUNT(*) AS totalOrganizations
+      FROM organizations
+    `;
+
+    dbms.dbquery(totalUsersQuery, (usersErr, usersRes) => {
+      if (usersErr) {
+        console.error("ADMIN STATS USERS ERROR:", usersErr);
+        return res.status(500).json({ success: false, message: "Failed to load stats" });
+      }
+
+      dbms.dbquery(totalCoursesQuery, (coursesErr, coursesRes) => {
+        if (coursesErr) {
+          console.error("ADMIN STATS COURSES ERROR:", coursesErr);
+          return res.status(500).json({ success: false, message: "Failed to load stats" });
+        }
+
+        dbms.dbquery(totalPrincipalsQuery, (principalsErr, principalsRes) => {
+          if (principalsErr) {
+            console.error("ADMIN STATS PRINCIPALS ERROR:", principalsErr);
+            return res.status(500).json({ success: false, message: "Failed to load stats" });
+          }
+
+          dbms.dbquery(totalOrganizationsQuery, (orgsErr, orgsRes) => {
+            if (orgsErr) {
+              console.error("ADMIN STATS ORGANIZATIONS ERROR:", orgsErr);
+              return res.status(500).json({ success: false, message: "Failed to load stats" });
+            }
+
+            return res.json({
+              success: true,
+              data: {
+                totalUsers: usersRes?.[0]?.totalUsers || 0,
+                totalCourses: coursesRes?.[0]?.totalCourses || 0,
+                totalPrincipals: principalsRes?.[0]?.totalPrincipals || 0,
+                totalOrganizations: orgsRes?.[0]?.totalOrganizations || 0,
+              },
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+app.get( "/api/admin/users",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const query = `
+      SELECT
+        u.email,
+        COALESCE(p.fullname, '') AS fullname,
+        COALESCE(p.role, 'educator') AS role,
+        COALESCE(p.photo, '') AS photo,
+        COALESCE(p.whatsapp, '') AS whatsapp,
+        COALESCE(p.specialization, '') AS specialization,
+        p.organization_id,
+        COALESCE(o.name, '') AS organization
+      FROM users u
+      LEFT JOIN profile p ON p.email = u.email
+      LEFT JOIN organizations o ON p.organization_id = o.id
+      ORDER BY u.email ASC
+    `;
+
+    dbms.dbquery(query, (err, response) => {
+      if (err) {
+        console.error("ADMIN USERS ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch users",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: response || [],
+      });
+    });
+  }
+);
+
+app.put( "/api/admin/users/:email/role",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const { email } = req.params;
+    const { role } = req.body;
+
+    const allowedRoles = ["admin", "trainer", "educator", "principal"];
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role",
+      });
+    }
+
+    const query = `
+      UPDATE profile
+      SET role = ?
+      WHERE email = ?
+    `;
+
+    dbms.dbquery(query, [role, email], (err, response) => {
+      if (err) {
+        console.error("ADMIN ROLE UPDATE ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to update role",
+        });
+      }
+
+      if (!response || response.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "User profile not found",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Role updated successfully",
+      });
+    });
+  }
+);
+
+app.post( "/api/admin/organizations",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const { name, code } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Organization name is required",
+      });
+    }
+
+    const query = `
+      INSERT INTO organizations (name, code)
+      VALUES (?, ?)
+    `;
+
+    dbms.dbquery(query, [name.trim(), code || null], (err, response) => {
+      if (err) {
+        console.error("CREATE ORGANIZATION ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to create organization",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Organization created successfully",
+        data: {
+          id: response.insertId,
+          name: name.trim(),
+          code: code || null,
+        },
+      });
+    });
+  }
+);
+
+app.get( "/api/admin/organizations",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const query = `
+      SELECT
+        o.id,
+        o.name,
+        o.code,
+        o.principal_email AS principalEmail,
+        COALESCE(p.fullname, '') AS principalName
+      FROM organizations o
+      LEFT JOIN profile p ON p.email = o.principal_email
+      ORDER BY o.name ASC
+    `;
+
+    dbms.dbquery(query, (err, response) => {
+      if (err) {
+        console.error("GET ORGANIZATIONS ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch organizations",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: response || [],
+      });
+    });
+  }
+);
+
+app.put( "/api/admin/organizations/:id/principal",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const { id } = req.params;
+    const { principalEmail } = req.body;
+
+    if (!principalEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Principal email is required",
+      });
+    }
+
+    const principalCheckQuery = `
+      SELECT email, role
+      FROM profile
+      WHERE email = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(principalCheckQuery, [principalEmail], (checkErr, checkRes) => {
+      if (checkErr) {
+        console.error("PRINCIPAL CHECK ERROR:", checkErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate principal",
+        });
+      }
+
+      if (!checkRes || checkRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Principal profile not found",
+        });
+      }
+
+      if (checkRes[0].role !== "principal") {
+        return res.status(400).json({
+          success: false,
+          message: "Selected user is not a principal",
+        });
+      }
+
+      const updateQuery = `
+        UPDATE organizations
+        SET principal_email = ?
+        WHERE id = ?
+      `;
+
+      dbms.dbquery(updateQuery, [principalEmail, id], (err, response) => {
+        if (err) {
+          console.error("ASSIGN PRINCIPAL ERROR:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to assign principal",
+          });
+        }
+
+        if (!response || response.affectedRows === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Organization not found",
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: "Principal assigned successfully",
+        });
+      });
+    });
+  }
+);
+
+app.put( "/api/admin/users/:email/organization",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const { email } = req.params;
+    const { organizationId } = req.body;
+
+    const query = `
+      UPDATE profile
+      SET organization_id = ?
+      WHERE email = ?
+    `;
+
+    dbms.dbquery(query, [organizationId || null, email], (err, response) => {
+      if (err) {
+        console.error("ASSIGN USER ORGANIZATION ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to assign organization",
+        });
+      }
+
+      if (!response || response.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "User profile not found",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Organization assigned successfully",
+      });
+    });
+  }
+);
+
+//---END ADMIN Routes---
+
+//---Principal Routes---
+app.get( "/api/principal/dashboard",
+  authenticateToken,
+  authorizeRoles("principal"),
+  (req, res) => {
+    const orgQuery = `
+      SELECT id, name
+      FROM organizations
+      WHERE principal_email = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(orgQuery, [req.user.email], (orgErr, orgRes) => {
+      if (orgErr) {
+        console.error("PRINCIPAL DASHBOARD ORG ERROR:", orgErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load principal organization",
+        });
+      }
+
+      if (!orgRes || orgRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No organization assigned to this principal",
+        });
+      }
+
+      const organizationId = orgRes[0].id;
+      const organizationName = orgRes[0].name;
+
+      const educatorsQuery = `
+        SELECT COUNT(*) AS totalEducators
+        FROM profile
+        WHERE role = 'educator' AND organization_id = ?
+      `;
+
+      const activeAssignmentsQuery = `
+        SELECT COUNT(*) AS activeAssignments
+        FROM educator_course_assignments
+        WHERE organization_id = ?
+          AND status IN ('assigned', 'in_progress')
+      `;
+
+      const completedAssignmentsQuery = `
+        SELECT COUNT(*) AS completedAssignments
+        FROM educator_course_assignments
+        WHERE organization_id = ?
+          AND status = 'completed'
+      `;
+
+      dbms.dbquery(educatorsQuery, [organizationId], (educatorsErr, educatorsRes) => {
+        if (educatorsErr) {
+          console.error("PRINCIPAL DASHBOARD EDUCATORS ERROR:", educatorsErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to load dashboard stats",
+          });
+        }
+
+        dbms.dbquery(activeAssignmentsQuery, [organizationId], (activeErr, activeRes) => {
+          if (activeErr) {
+            console.error("PRINCIPAL DASHBOARD ACTIVE ASSIGNMENTS ERROR:", activeErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to load dashboard stats",
+            });
+          }
+
+          dbms.dbquery(completedAssignmentsQuery, [organizationId], (completedErr, completedRes) => {
+            if (completedErr) {
+              console.error("PRINCIPAL DASHBOARD COMPLETED ASSIGNMENTS ERROR:", completedErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to load dashboard stats",
+              });
+            }
+
+            return res.json({
+              success: true,
+              data: {
+                organizationId,
+                organizationName,
+                totalEducators: educatorsRes?.[0]?.totalEducators || 0,
+                activeAssignments: activeRes?.[0]?.activeAssignments || 0,
+                completedAssignments: completedRes?.[0]?.completedAssignments || 0,
+              },
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+app.get("/api/principal/educators",
+  authenticateToken,
+  authorizeRoles("principal"),
+  (req, res) => {
+    const orgQuery = `
+      SELECT id
+      FROM organizations
+      WHERE principal_email = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(orgQuery, [req.user.email], (orgErr, orgRes) => {
+      if (orgErr) {
+        console.error("PRINCIPAL EDUCATORS ORG ERROR:", orgErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load organization",
+        });
+      }
+
+      if (!orgRes || orgRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No organization assigned to this principal",
+        });
+      }
+
+      const organizationId = orgRes[0].id;
+
+      const query = `
+        SELECT
+          p.email,
+          COALESCE(p.fullname, '') AS fullname,
+          COALESCE(p.specialization, '') AS specialization,
+          COUNT(DISTINCT eca.course_id) AS assignedCourses,
+          SUM(CASE WHEN eca.status IN ('assigned', 'in_progress') THEN 1 ELSE 0 END) AS activeCourses,
+          SUM(CASE WHEN eca.status = 'completed' THEN 1 ELSE 0 END) AS completedCourses,
+          AVG(
+            CASE
+              WHEN qs.grade REGEXP '^[0-9]+(\\.[0-9]+)?$'
+              THEN CAST(qs.grade AS DECIMAL(10,2))
+              ELSE NULL
+            END
+          ) AS averageGrade,
+          MAX(qs.created_at) AS latestSubmissionAt
+        FROM profile p
+        LEFT JOIN educator_course_assignments eca
+          ON eca.educator_email = p.email
+        LEFT JOIN quiz_submissions qs
+          ON qs.user_email = p.email
+         AND qs.is_latest = 1
+        WHERE p.role = 'educator'
+          AND p.organization_id = ?
+        GROUP BY p.email, p.fullname, p.specialization
+        ORDER BY p.fullname ASC, p.email ASC
+      `;
+
+      dbms.dbquery(query, [organizationId], (err, response) => {
+        if (err) {
+          console.error("PRINCIPAL EDUCATORS ERROR:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to fetch educators",
+          });
+        }
+
+        return res.json({
+          success: true,
+          data: (response || []).map((row) => ({
+            ...row,
+            averageGrade:
+              row.averageGrade !== null
+                ? Number(row.averageGrade).toFixed(2)
+                : null,
+          })),
+        });
+      });
+    });
+  }
+);
+
+app.get("/api/principal/educator-performance",
+  authenticateToken,
+  authorizeRoles("principal"),
+  (req, res) => {
+    const organizationQuery = `
+      SELECT id
+      FROM organizations
+      WHERE principal_email = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(organizationQuery, [req.user.email], (orgErr, orgRes) => {
+      if (orgErr) {
+        console.error("PRINCIPAL PERFORMANCE ORG LOOKUP ERROR:", orgErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load organization",
+        });
+      }
+
+      if (!orgRes || orgRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No organization assigned to this principal",
+        });
+      }
+
+      const organizationId = orgRes[0].id;
+
+      const query = `
+        SELECT
+          p.email,
+          COALESCE(p.fullname, '') AS fullname,
+          COUNT(DISTINCT qs.module_id) AS submittedQuizzes,
+          AVG(
+            CASE
+              WHEN qs.grade REGEXP '^[0-9]+(\\.[0-9]+)?$'
+              THEN CAST(qs.grade AS DECIMAL(10,2))
+              ELSE NULL
+            END
+          ) AS averageGrade,
+          MAX(qs.created_at) AS latestSubmissionAt
+        FROM profile p
+        LEFT JOIN quiz_submissions qs
+          ON qs.user_email = p.email
+         AND qs.is_latest = 1
+        WHERE p.role = 'educator' AND p.organization_id = ?
+        GROUP BY p.email, p.fullname
+        ORDER BY p.fullname ASC, p.email ASC
+      `;
+
+      dbms.dbquery(query, [organizationId], (err, response) => {
+        if (err) {
+          console.error("PRINCIPAL PERFORMANCE ERROR:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to fetch educator performance",
+          });
+        }
+
+        return res.json({
+          success: true,
+          data: (response || []).map((row) => ({
+            ...row,
+            averageGrade:
+              row.averageGrade !== null
+                ? Number(row.averageGrade).toFixed(2)
+                : null,
+          })),
+        });
+      });
+    });
+  }
+);
+
+app.get( "/api/principal/courses",
+  authenticateToken,
+  authorizeRoles("principal"),
+  (req, res) => {
+    const query = `
+      SELECT
+        id,
+        title,
+        instructor,
+        lessons,
+        quizzes,
+        progress,
+        thumbnail,
+        description
+      FROM courses
+      ORDER BY id DESC
+    `;
+
+    dbms.dbquery(query, (err, response) => {
+      if (err) {
+        console.error("PRINCIPAL COURSES ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch courses",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: response || [],
+      });
+    });
+  }
+);
+
+app.post( "/api/principal/assign-course",
+  authenticateToken,
+  authorizeRoles("principal"),
+  (req, res) => {
+    const { educatorEmail, courseId } = req.body;
+
+    if (!educatorEmail || !courseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Educator email and course id are required",
+      });
+    }
+
+    const orgQuery = `
+      SELECT id
+      FROM organizations
+      WHERE principal_email = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(orgQuery, [req.user.email], (orgErr, orgRes) => {
+      if (orgErr) {
+        console.error("ASSIGN COURSE ORG ERROR:", orgErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load organization",
+        });
+      }
+
+      if (!orgRes || orgRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No organization assigned to this principal",
+        });
+      }
+
+      const organizationId = orgRes[0].id;
+
+      const educatorQuery = `
+        SELECT email
+        FROM profile
+        WHERE email = ?
+          AND role = 'educator'
+          AND organization_id = ?
+        LIMIT 1
+      `;
+
+      dbms.dbquery(educatorQuery, [educatorEmail, organizationId], (educatorErr, educatorRes) => {
+        if (educatorErr) {
+          console.error("ASSIGN COURSE EDUCATOR CHECK ERROR:", educatorErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to validate educator",
+          });
+        }
+
+        if (!educatorRes || educatorRes.length === 0) {
+          return res.status(403).json({
+            success: false,
+            message: "Educator is not in your organization",
+          });
+        }
+
+        const courseQuery = `
+          SELECT id
+          FROM courses
+          WHERE id = ?
+          LIMIT 1
+        `;
+
+        dbms.dbquery(courseQuery, [courseId], (courseErr, courseRes) => {
+          if (courseErr) {
+            console.error("ASSIGN COURSE COURSE CHECK ERROR:", courseErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to validate course",
+            });
+          }
+
+          if (!courseRes || courseRes.length === 0) {
+            return res.status(404).json({
+              success: false,
+              message: "Course not found",
+            });
+          }
+
+          const insertQuery = `
+            INSERT INTO educator_course_assignments (
+              educator_email,
+              course_id,
+              assigned_by_email,
+              organization_id,
+              status
+            )
+            VALUES (?, ?, ?, ?, 'assigned', 'principal')
+          `;
+
+          dbms.dbquery(
+            insertQuery,
+            [educatorEmail, courseId, req.user.email, organizationId],
+            (insertErr) => {
+              if (insertErr) {
+                console.error("ASSIGN COURSE INSERT ERROR:", insertErr);
+
+                if (insertErr.code === "ER_DUP_ENTRY") {
+                  return res.status(400).json({
+                    success: false,
+                    message: "This course is already assigned to the educator",
+                  });
+                }
+
+                return res.status(500).json({
+                  success: false,
+                  message: "Failed to assign course",
+                });
+              }
+
+              return res.json({
+                success: true,
+                message: "Course assigned successfully",
+              });
+            }
+          );
+        });
+      });
+    });
+  }
+);
+
+//--END Principal Routes---
 
 
 

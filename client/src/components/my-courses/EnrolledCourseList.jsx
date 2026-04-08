@@ -7,6 +7,17 @@ export default function EnrolledCourseList({ courses = [] }) {
     return <p>No enrolled courses found.</p>;
   }
 
+  const formatSource = (source) => {
+    if (source === "principal") return "Principal Assigned";
+    if (source === "self") return "Self Enrolled";
+    return "—";
+  };
+
+  const formatStatus = (status) => {
+    if (!status) return "—";
+    return status.replace("_", " ");
+  };
+
   return (
     <div className="enrolled-list">
       {courses.map((course) => (
@@ -36,6 +47,15 @@ export default function EnrolledCourseList({ courses = [] }) {
             <p className="enrolled-course-card__progress">
               {course.progress || 0}% progress
             </p>
+
+            <div className="enrolled-course-card__meta">
+              <p className="enrolled-course-card__detail">
+                <strong>Status:</strong> {formatStatus(course.assignment_status)}
+              </p>
+              <p className="enrolled-course-card__detail">
+                <strong>Source:</strong> {formatSource(course.source)}
+              </p>
+            </div>
           </div>
         </div>
       ))}
