@@ -30,23 +30,6 @@ export default function ProfileView() {
   const [isEditing, setIsEditing] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
 
-  const getAuthHeaders = (isJson = true) => {
-    const storedUser = JSON.parse(localStorage.getItem("user") || "null");
-    const token = storedUser?.token || user?.token;
-
-    const headers = {};
-
-    if (isJson) {
-      headers["Content-Type"] = "application/json";
-    }
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    return headers;
-  };
-
   useEffect(() => {
     const loadProfile = async () => {
       setLoading(true);
@@ -54,14 +37,11 @@ export default function ProfileView() {
       setMessage("");
 
       try {
-        const response = await API.get("/profile/me", {
-          method: "GET",
-          headers: getAuthHeaders(false),
-        });
+      const response = await API.get("/profile/me");
 
-        const data = await response.json();
+        const data = response.data;
 
-        if (!response.ok || !data.success) {
+        if (!data?.success) {
           setError(data.message || "Failed to load profile.");
           setLoading(false);
           return;
@@ -150,15 +130,11 @@ export default function ProfileView() {
       const formData = new FormData();
       formData.append("photo", file);
 
-      const response = await API.get("/profile/upload-photo", {
-        method: "POST",
-        headers: getAuthHeaders(false),
-        body: formData,
-      });
+      const response = await API.post("/profile/upload-photo", formData);
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok && data.success === true) {
+      if (data?.success) {
         setProfile((prev) => ({
           ...prev,
           photo: data.photoUrl,
@@ -231,21 +207,18 @@ export default function ProfileView() {
     setError("");
 
     try {
-      const response = await API.get("/profile/update", {
-        method: "POST",
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({
+      const response = await API.post("/profile/update", {
           photo: profile.photo,
           fullname: profile.fullname,
           whatsapp: profile.whatsapp,
           organization: profile.organization,
           specialization: profile.specialization,
-        }),
-      });
+        });
+      
 
-      const data = await response.json();
+        const data = response.data;
 
-      if (response.ok && data.success === true) {
+        if (data?.success) {
         const savedProfile = {
           ...profile,
           oldPassword: "",
@@ -314,18 +287,14 @@ export default function ProfileView() {
     }
 
     try {
-      const response = await API.get("/profile/change-password", {
-        method: "POST",
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({
+      const response = await API.post("/profile/change-password", {
           oldPassword: profile.oldPassword,
           newPassword: profile.newPassword,
-        }),
-      });
+        });
 
-      const data = await response.json();
+        const data = response.data;
 
-      if (response.ok && data.success === true) {
+        if (data?.success) {
         setMessage(data.message || "Password changed successfully.");
         setProfile((prev) => ({
           ...prev,

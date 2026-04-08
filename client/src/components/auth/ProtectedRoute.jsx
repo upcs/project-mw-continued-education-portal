@@ -17,11 +17,13 @@ export default function ProtectedRoute({
     return <Navigate to="/" replace state={{ from: location }} />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user?.role)) {
+  const isAdmin = user?.role === "admin";
+
+  if (allowedRoles && !isAdmin && !allowedRoles.includes(user?.role)) {
     return <Navigate to="/unauthorized" replace state={{ from: location }} />;
   }
 
-  if (requiredPermission && !hasPermission(requiredPermission)) {
+  if (requiredPermission && !isAdmin && !hasPermission(requiredPermission)) {
     return <Navigate to="/unauthorized" replace state={{ from: location }} />;
   }
 

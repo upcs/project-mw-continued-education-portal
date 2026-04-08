@@ -1,1 +1,31 @@
+# dependencies
+node_modules/
+client/node_modules/
 
+# build output
+build/
+client/build/
+coverage/
+
+# environment files
+.env
+.env.*
+!.env.example
+
+# uploads
+client/server/uploads/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# editor / OS files
+.vscode/
+.vs/
+.DS_Store
+Thumbs.db
+
+# local databases / temp
+*.sqlite
+*.sqlite3

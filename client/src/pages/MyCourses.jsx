@@ -110,7 +110,7 @@ export default function MyCourses() {
               <div className="status-box">
                 
                 <div className="status-box__item">
-                  {completedCourses}/{stats.totalCourses} completed
+                  {stats.completedCourses}/{stats.totalCourses} completed
                 </div>
 
                 <div className="status-box__item">
@@ -118,7 +118,7 @@ export default function MyCourses() {
                 </div>
 
                 <div className="status-box__item">
-                  {course.filter(c => c.assignment_status === "in_progress").length} in progress
+                  {courses.filter(c => c.assignment_status === "in_progress").length} in progress
                 </div>
                 
                 <div className="status-box__item">

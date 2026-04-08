@@ -144,14 +144,7 @@ export default function Dashboard() {
                   <StatCard
                     title="Pending Reviews"
                     value={stats.pendingReviews || 0}
-                    subtitle={
-                      stats.defaultPendingCourseId
-                        ? "Click to review submitted quizzes"
-                        : "No pending quiz reviews"
-                    }
-                    onClick={
-                      stats.defaultPendingCourseId ? handlePendingReviewsClick : undefined
-                    }
+                    subtitle="Open the Reviews page to manage submissions"
                   />
                 )}
               </div>

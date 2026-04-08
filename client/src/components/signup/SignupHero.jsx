@@ -6,9 +6,11 @@ export default function SignupHero() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
+    fullname: "",
     email: "",
     password: "",
     confirmPassword: "",
+    role: "educator",
   });
 
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,12 @@ export default function SignupHero() {
   };
 
   const validateForm = () => {
-    if (!formData.email || !formData.password || !formData.confirmPassword) {
+    if (
+      !formData.fullname ||
+      !formData.email ||
+      !formData.password ||
+      !formData.confirmPassword
+    ) {
       setError("All fields are required.");
       return false;
     }
@@ -59,21 +66,15 @@ export default function SignupHero() {
     try {
       setLoading(true);
 
-      const response = await API.get("/auth/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      const response = await API.post("/auth/signup", {
+        fullname: formData.fullname.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        role: formData.role,
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Signup failed");
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || "Signup failed");
       }
 
       setSuccess("Account created successfully. Redirecting to login...");
@@ -82,7 +83,9 @@ export default function SignupHero() {
         navigate("/");
       }, 1200);
     } catch (err) {
-      setError(err.message || "Something went wrong.");
+      setError(
+        err?.response?.data?.message || err.message || "Something went wrong."
+      );
     } finally {
       setLoading(false);
     }
@@ -110,6 +113,19 @@ export default function SignupHero() {
           </p>
 
           <form className="signup-form" onSubmit={handleSubmit}>
+            <label className="signup-form__label" htmlFor="fullname">
+              Full Name
+            </label>
+            <input
+              id="fullname"
+              name="fullname"
+              type="text"
+              className="signup-form__input"
+              placeholder="Enter your full name"
+              value={formData.fullname}
+              onChange={handleChange}
+            />
+
             <label className="signup-form__label" htmlFor="email">
               Email
             </label>
@@ -149,8 +165,31 @@ export default function SignupHero() {
               onChange={handleChange}
             />
 
-            {error && <p className="signup-form__message signup-form__message--error">{error}</p>}
-            {success && <p className="signup-form__message signup-form__message--success">{success}</p>}
+            <label className="signup-form__label" htmlFor="role">
+              Role
+            </label>
+            <select
+              id="role"
+              name="role"
+              className="signup-form__input"
+              value={formData.role}
+              onChange={handleChange}
+            >
+              <option value="educator">Educator</option>
+              <option value="trainer">Trainer</option>
+              <option value="principal">Principal</option>
+            </select>
+
+            {error && (
+              <p className="signup-form__message signup-form__message--error">
+                {error}
+              </p>
+            )}
+            {success && (
+              <p className="signup-form__message signup-form__message--success">
+                {success}
+              </p>
+            )}
 
             <button
               type="submit"
