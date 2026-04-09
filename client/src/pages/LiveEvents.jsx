@@ -57,7 +57,7 @@ export default function LiveEvents() {
         )}&source=${encodeURIComponent(searchSource)}`
       );
 
-      const data = await response.json();
+      const data = response.data;
 
       if (data.success) {
         setResults(data.data || []);
