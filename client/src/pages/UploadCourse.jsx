@@ -154,64 +154,55 @@ export default function UploadCourse() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setMessage("");
+  e.preventDefault();
+  setError("");
+  setMessage("");
 
-    if (!formData.title.trim()) {
-      setError("Course title is required.");
-      return;
+  if (!formData.title.trim()) {
+    setError("Course title is required.");
+    return;
+  }
+
+  if (!formData.instructor.trim()) {
+    setError("Instructor name is required.");
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const data = new FormData();
+    data.append("title", formData.title);
+    data.append("instructor", formData.instructor);
+    data.append("description", formData.description);
+
+    if (thumbnail) {
+      data.append("thumbnail", thumbnail);
     }
 
-    if (!formData.instructor.trim()) {
-      setError("Instructor name is required.");
-      return;
+    if (courseFile) {
+      data.append("courseFile", courseFile);
     }
 
-    try {
-      setLoading(true);
+    const response = await API.post("/courses/upload", data, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
-      const data = new FormData();
-      data.append("title", formData.title);
-      data.append("instructor", formData.instructor);
-      data.append("lessons", formData.lessons || 0);
-      data.append("quizzes", formData.quizzes || 0);
-      data.append("progress", formData.progress || 0);
-      data.append("description", formData.description);
+    const result = response.data;
 
-      if (thumbnail) {
-        data.append("thumbnail", thumbnail);
-      }
+    if (!result.success) {
+      throw new Error(result.message || "Failed to upload course");
+    }
 
-      if (courseFile) {
-        data.append("courseFile", courseFile);
-      }
-
-      const response = await API.get("/courses/upload", {
-        method: "POST",
-        body: data,
-      });
-
-      const text = await response.text();
-      console.log("UPLOAD RAW RESPONSE:", text);
-
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch {
-        throw new Error("Server did not return valid JSON");
-      }
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to upload course");
-      }
-
-      clearAll();
-      setMessage("Course uploaded successfully.");
+    clearAll();
+    setMessage("Course uploaded successfully.");
     } catch (err) {
-      setError(err.message || "Something went wrong.");
+    console.error("UPLOAD ERROR:", err);
+    setError(err?.response?.data?.message || err.message);
     } finally {
-      setLoading(false);
+    setLoading(false);
     }
   };
 
@@ -271,192 +262,185 @@ export default function UploadCourse() {
     );
   };
 
-  return (
+   return (
     <section className="upload-page">
-      <h1 className="upload-page__title">Upload Contents</h1>
+      <div className="upload-page__header">
+        <div>
+          <h1 className="upload-page__title">Upload Course</h1>
+          <p className="upload-page__subtitle">
+            Add a new course with a thumbnail, course file, and course details.
+          </p>
+        </div>
+      </div>
 
       <form className="upload-page__layout" onSubmit={handleSubmit}>
-        <div className="upload-box">
-          <div
-            className="upload-box__drop"
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <div className="upload-box__circle">
-              <div className="upload-box__icon">☁</div>
-              <p>
-                Drag and Drop
-                <br />
-                or Browse Course File
-              </p>
+        <div className="upload-panel upload-panel--left">
+          <div className="upload-card">
+            <div className="upload-card__header">
+              <h2>Course Files</h2>
+              <p>Upload the main learning file and an optional thumbnail.</p>
             </div>
-          </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.txt,.md,image/*,video/*"
-            className="hidden-file-input"
-            onChange={handleCourseFileChange}
-          />
+            <div
+              className="upload-dropzone"
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="upload-dropzone__icon">☁</div>
+              <h3>Drag and drop your course file</h3>
+              <p>or click here to browse</p>
+              <span className="upload-dropzone__hint">
+                PDF, TXT, MD, image, or video
+              </span>
+            </div>
 
-          <input
-            ref={thumbnailInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden-file-input"
-            onChange={handleThumbnailChange}
-          />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.txt,.md,image/*,video/*"
+              className="hidden-file-input"
+              onChange={handleCourseFileChange}
+            />
 
-          <div className="upload-list">
-            <div className="upload-item upload-item--static">
-              <span>Course File</span>
+            <input
+              ref={thumbnailInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden-file-input"
+              onChange={handleThumbnailChange}
+            />
+
+            <div className="upload-actions-row">
               <button
                 type="button"
-                className="upload-action-btn"
+                className="upload-secondary-btn"
                 onClick={() => fileInputRef.current?.click()}
               >
-                Browse File
+                Browse Course File
               </button>
-            </div>
 
-            <div className="upload-item upload-item--static">
-              <span>Thumbnail</span>
               <button
                 type="button"
-                className="upload-action-btn"
+                className="upload-secondary-btn"
                 onClick={() => thumbnailInputRef.current?.click()}
               >
                 Browse Thumbnail
               </button>
             </div>
 
-            {courseFile && (
-              <div className="upload-item">
-                <span>{courseFile.name}</span>
-                <div className="upload-bar">
-                  <div className="upload-bar__fill" style={{ width: "100%" }} />
+            <div className="upload-file-list">
+              <div className="upload-file-row">
+                <div>
+                  <strong>Course File</strong>
+                  <p>{courseFile ? courseFile.name : "No file selected"}</p>
                 </div>
-                <span>✓</span>
+                {courseFile && <span className="upload-file-row__status">Ready</span>}
               </div>
-            )}
 
-            {thumbnail && (
-              <div className="upload-item">
-                <span>{thumbnail.name}</span>
-                <div className="upload-bar">
-                  <div className="upload-bar__fill" style={{ width: "100%" }} />
+              <div className="upload-file-row">
+                <div>
+                  <strong>Thumbnail</strong>
+                  <p>{thumbnail ? thumbnail.name : "No thumbnail selected"}</p>
                 </div>
-                <span>✓</span>
+                {thumbnail && <span className="upload-file-row__status">Ready</span>}
               </div>
-            )}
-
-            {!thumbnail && !courseFile && (
-              <div className="upload-empty-state">
-                No files selected yet.
-              </div>
-            )}
+            </div>
           </div>
 
-          {courseFile && (
-            <div className="upload-preview-block">
-              <h3>Course File Preview</h3>
-              {renderCourseFilePreview()}
-            </div>
-          )}
+          {(courseFile || thumbnailPreview) && (
+            <div className="upload-card">
+              <div className="upload-card__header">
+                <h2>Preview</h2>
+                <p>Review selected files before publishing.</p>
+              </div>
 
-          {thumbnailPreview && (
-            <div className="upload-preview-block">
-              <h3>Thumbnail Preview</h3>
-              <img
-                src={thumbnailPreview}
-                alt="Thumbnail preview"
-                className="upload-preview-media"
-              />
+              {courseFile && (
+                <div className="upload-preview-section">
+                  <h3>Course File Preview</h3>
+                  {renderCourseFilePreview()}
+                </div>
+              )}
+
+              {thumbnailPreview && (
+                <div className="upload-preview-section">
+                  <h3>Thumbnail Preview</h3>
+                  <img
+                    src={thumbnailPreview}
+                    alt="Thumbnail preview"
+                    className="upload-preview-media"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        <div className="upload-form">
-          <label>Title</label>
-          <input
-            type="text"
-            name="title"
-            placeholder="Enter title"
-            value={formData.title}
-            onChange={handleChange}
-          />
-
-          <label>Instructor</label>
-          <input
-            type="text"
-            name="instructor"
-            placeholder="Enter instructor name"
-            value={formData.instructor}
-            onChange={handleChange}
-          />
-
-          <div className="upload-form__row">
-            <div>
-              <label>Lessons</label>
-              <input
-                type="number"
-                name="lessons"
-                placeholder="0"
-                value={formData.lessons}
-                onChange={handleChange}
-              />
+        <div className="upload-panel upload-panel--right">
+          <div className="upload-card">
+            <div className="upload-card__header">
+              <h2>Course Details</h2>
+              <p>Fill in the information learners will see.</p>
             </div>
 
-            <div>
-              <label>Quizzes</label>
-              <input
-                type="number"
-                name="quizzes"
-                placeholder="0"
-                value={formData.quizzes}
-                onChange={handleChange}
-              />
+            <div className="upload-form-grid">
+              <label className="upload-field">
+                <span>Title</span>
+                <input
+                  type="text"
+                  name="title"
+                  placeholder="Enter course title"
+                  value={formData.title}
+                  onChange={handleChange}
+                />
+              </label>
+
+              <label className="upload-field">
+                <span>Instructor</span>
+                <input
+                  type="text"
+                  name="instructor"
+                  placeholder="Enter instructor name"
+                  value={formData.instructor}
+                  onChange={handleChange}
+                />
+              </label>
+
+              <label className="upload-field">
+                <span>Description</span>
+                <textarea
+                  name="description"
+                  placeholder="Write a detailed description"
+                  value={formData.description}
+                  onChange={handleChange}
+                />
+              </label>
             </div>
-          </div>
 
-          <label>Progress</label>
-          <input
-            type="number"
-            name="progress"
-            min="0"
-            max="100"
-            placeholder="0 to 100"
-            value={formData.progress}
-            onChange={handleChange}
-          />
+            <p className="upload-note">
+              You can edit course details later after publishing.
+            </p>
 
-          <label>Description</label>
-          <textarea
-            name="description"
-            placeholder="Write a detailed description"
-            value={formData.description}
-            onChange={handleChange}
-          />
+            {error && <p className="upload-message upload-message--error">{error}</p>}
+            {message && <p className="upload-message upload-message--success">{message}</p>}
 
-          <small>You will be able to edit this information later</small>
+            <div className="upload-form-actions">
+              <button
+                type="button"
+                className="upload-ghost-btn"
+                onClick={clearAll}
+              >
+                Clear
+              </button>
 
-          {error && <p className="upload-message upload-message--error">{error}</p>}
-          {message && <p className="upload-message upload-message--success">{message}</p>}
-
-          <div className="form-actions">
-            <button
-              type="button"
-              className="btn-cancel"
-              onClick={clearAll}
-            >
-              Cancel
-            </button>
-
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? "Publishing..." : "Publish"}
-            </button>
+              <button
+                type="submit"
+                className="upload-primary-btn"
+                disabled={loading}
+              >
+                {loading ? "Publishing..." : "Publish Course"}
+              </button>
+            </div>
           </div>
         </div>
       </form>

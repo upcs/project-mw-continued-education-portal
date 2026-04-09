@@ -9,6 +9,7 @@ export default function CourseCard({
   lessons,
   quizzes,
   thumbnail,
+  progress = null,
   actionLabel = "",
   onAction = null,
   actionDisabled = false,
@@ -16,6 +17,11 @@ export default function CourseCard({
   sourceLabel = "",
 }) {
   const navigate = useNavigate();
+
+  const normalizedProgress =
+    progress === null || progress === undefined
+      ? null
+      : Math.max(0, Math.min(100, Number(progress) || 0));
 
   return (
     <article className="course-card">
@@ -53,6 +59,24 @@ export default function CourseCard({
           <span>{quizzes} {Number(quizzes) === 1 ? "quiz" : "quizzes"}</span>
         </div>
 
+        {normalizedProgress !== null && (
+          <div className="course-card__progress-block">
+            <div className="course-card__progress-top">
+              <span className="course-card__progress-label">Progress</span>
+              <span className="course-card__progress-value">
+                {normalizedProgress}%
+              </span>
+            </div>
+
+            <div className="course-card__progress-bar">
+              <div
+                className="course-card__progress-fill"
+                style={{ width: `${normalizedProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {(statusLabel || sourceLabel) && (
           <div className="course-card__details">
             {statusLabel && (
@@ -71,7 +95,13 @@ export default function CourseCard({
         {actionLabel && onAction && (
           <button
             type="button"
-            className="course-card__action"
+            className={`course-card__action ${
+              actionLabel === "Completed"
+              ? "course-card__action--completed"
+              : actionLabel === "Enrolled"
+              ? "course-card__action--enrolled"
+              : ""
+            }`}
             onClick={(e) => {
               e.stopPropagation();
               onAction();

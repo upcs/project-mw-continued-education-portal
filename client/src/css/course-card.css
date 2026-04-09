@@ -92,3 +92,58 @@
   cursor: not-allowed;
   transform: none;
 }
+
+.course-card__progress-block {
+  margin-top: 0.9rem;
+}
+
+.course-card__progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.45rem;
+}
+
+.course-card__progress-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #344054;
+}
+
+.course-card__progress-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #101828;
+}
+
+.course-card__progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.course-card__progress-fill {
+  height: 100%;
+  background: #111827;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.course-card__action--enrolled {
+  background: #ecfdf3;
+  color: #027a48;
+  border: 1px solid #abefc6;
+}
+
+.course-card__action--completed {
+  background: #eff8ff;
+  color: #175cd3;
+  border: 1px solid #b2ddff;
+}
+
+.course-card__action:disabled {
+  opacity: 1;
+  cursor: default;
+}

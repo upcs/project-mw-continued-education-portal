@@ -46,20 +46,33 @@ export default function CourseCatalog() {
   }, []);
 
   const handleEnroll = async (courseId) => {
-    try {
-      setEnrollingCourseId(courseId);
-      setError("");
-      setMessage("");
+  try {
+    setEnrollingCourseId(courseId);
+    setError("");
+    setMessage("");
 
-      const { data } = await enrollInCourse(courseId);
+    const { data } = await enrollInCourse(courseId);
 
-      if (!data?.success) {
-        throw new Error(data?.message || "Failed to enroll in course");
-      }
+    if (!data?.success) {
+      throw new Error(data?.message || "Failed to enroll in course");
+    }
 
-      setMessage("Successfully enrolled in course.");
-    } catch (err) {
-      console.error("ENROLL COURSE ERROR:", err);
+    setCourses((prev) =>
+      prev.map((course) =>
+        course.id === courseId
+          ? {
+              ...course,
+              assignment_status: "in_progress",
+              source: "self",
+              progress: 0,
+            }
+          : course
+      )
+    );
+
+    setMessage("Successfully enrolled in course.");
+  } catch (err) {
+    console.error("ENROLL COURSE ERROR:", err);
       setError(
         err?.response?.data?.message || err.message || "Failed to enroll"
       );
@@ -84,28 +97,44 @@ export default function CourseCatalog() {
 
       <div className="course-catalog__grid">
         {courses.map((course) => (
-          <CourseCard
-            key={course.id}
-            id={course.id}
-            title={course.title}
-            author={course.instructor}
-            lessons={course.lessons}
-            quizzes={course.quizzes}
-            thumbnail={course.thumbnail}
-            statusLabel={course.assignment_status}
-            sourceLabel={course.source === "principal" ? "Principal Assigned" : "Self Enrolled"}
-            actionLabel={
-              isEducator
-                ? enrollingCourseId === course.id
-                ? "Enrolling..."
-                : "Enroll"
-              : ""
-            }
-            actionDisabled={enrollingCourseId === course.id}
-            onAction={
-              isEducator ? () => handleEnroll(course.id) : null
-            }
-          />
+         <CourseCard
+  key={course.id}
+  id={course.id}
+  title={course.title}
+  author={course.instructor}
+  lessons={course.lessons}
+  quizzes={course.quizzes}
+  thumbnail={course.thumbnail}
+  progress={course.progress}
+  statusLabel={course.assignment_status}
+  sourceLabel={
+    course.source === "principal" ? "Principal Assigned" : "Self Enrolled"
+  }
+  actionLabel={
+    isEducator
+      ? enrollingCourseId === course.id
+        ? "Enrolling..."
+        : course.assignment_status === "completed"
+        ? "Completed"
+        : course.assignment_status === "assigned" ||
+          course.assignment_status === "in_progress"
+        ? "Enrolled"
+        : "Enroll"
+      : ""
+  }
+  actionDisabled={
+    enrollingCourseId === course.id ||
+    course.assignment_status === "assigned" ||
+    course.assignment_status === "in_progress" ||
+    course.assignment_status === "completed"
+  }
+  onAction={
+    isEducator &&
+    !course.assignment_status
+      ? () => handleEnroll(course.id)
+      : null
+  }
+/>
         ))}
       </div>
     </section>
