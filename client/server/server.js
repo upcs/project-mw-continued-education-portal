@@ -80,6 +80,39 @@ function authorizeRoles(...allowedRoles) {
   };
 }
 
+function recalculateCourseCounts(courseId, callback) {
+  const query = `
+    SELECT
+      SUM(CASE WHEN type <> 'quiz' THEN 1 ELSE 0 END) AS lessons,
+      SUM(CASE WHEN type = 'quiz' THEN 1 ELSE 0 END) AS quizzes
+    FROM course_modules
+    WHERE course_id = ?
+  `;
+
+  dbms.dbquery(query, [courseId], (err, results) => {
+    if (err) {
+      return callback(err);
+    }
+
+    const lessons = Number(results?.[0]?.lessons || 0);
+    const quizzes = Number(results?.[0]?.quizzes || 0);
+
+    const updateQuery = `
+      UPDATE courses
+      SET lessons = ?, quizzes = ?
+      WHERE id = ?
+    `;
+
+    dbms.dbquery(updateQuery, [lessons, quizzes, courseId], (updateErr) => {
+      if (updateErr) {
+        return callback(updateErr);
+      }
+
+      callback(null, { lessons, quizzes });
+    });
+  });
+}
+
 
 app.use(
   cors({
@@ -425,9 +458,9 @@ app.post( "/api/courses/upload",
     const values = [
       title,
       instructor,
-      Number(lessons) || 0,
-      Number(quizzes) || 0,
-      Number(progress) || 0,
+      0,
+      0,
+      0,
       description || "",
       thumbnailUrl,
       fileUrl,
@@ -534,7 +567,10 @@ app.get("/api/courses", (req, res) => {
 
 
 app.get("/api/courses/enrolled", authenticateToken, (req, res) => {
-  if (req.user.role === "educator") {
+  const { role, email } = req.user;
+
+  // Educator view
+  if (role === "educator") {
     const query = `
       SELECT
         c.id,
@@ -542,7 +578,7 @@ app.get("/api/courses/enrolled", authenticateToken, (req, res) => {
         c.instructor,
         c.lessons,
         c.quizzes,
-        c.progress,
+        COALESCE(eca.progress, 0) AS progress,
         c.thumbnail,
         c.description,
         eca.status AS assignment_status,
@@ -553,50 +589,50 @@ app.get("/api/courses/enrolled", authenticateToken, (req, res) => {
       ORDER BY eca.assigned_at DESC
     `;
 
-    dbms.dbquery(query, [req.user.email], (err, response) => {
+    dbms.dbquery(query, [email], (err, results) => {
       if (err) {
-        console.error("EDUCATOR ASSIGNED COURSES ERROR:", err);
+        console.error("GET ENROLLED COURSES ERROR:", err);
         return res.status(500).json({
           success: false,
-          message: "Failed to fetch assigned courses",
+          message: "Failed to fetch enrolled courses",
         });
       }
 
       return res.json({
         success: true,
-        data: response || [],
+        data: results,
       });
     });
 
     return;
   }
 
+  // Admin / trainer / principal view (all courses)
   const query = `
     SELECT
-      id,
-      title,
-      instructor,
-      lessons,
-      quizzes,
-      progress,
-      thumbnail,
-      description
-    FROM courses
-    ORDER BY id DESC
+      c.id,
+      c.title,
+      c.instructor,
+      c.lessons,
+      c.quizzes,
+      c.thumbnail,
+      c.description
+    FROM courses c
+    ORDER BY c.id DESC
   `;
 
-  dbms.dbquery(query, (err, response) => {
+  dbms.dbquery(query, [], (err, results) => {
     if (err) {
-      console.error("ENROLLED COURSES ERROR:", err);
+      console.error("GET COURSES ERROR:", err);
       return res.status(500).json({
         success: false,
-        message: "Failed to fetch enrolled courses",
+        message: "Failed to fetch courses",
       });
     }
 
     return res.json({
       success: true,
-      data: response || [],
+      data: results,
     });
   });
 });
@@ -813,14 +849,16 @@ app.post("/api/courses/:courseId/check-completion",
       WHERE course_id = ? AND type = 'quiz'
     `;
 
-    const submittedQuizzesQuery = `
-      SELECT COUNT(DISTINCT qs.module_id) AS submittedQuizzes
+    const passedQuizzesQuery = `
+      SELECT COUNT(DISTINCT qs.module_id) AS passedQuizzes
       FROM quiz_submissions qs
       INNER JOIN course_modules cm ON cm.id = qs.module_id
       WHERE qs.user_email = ?
         AND qs.is_latest = 1
         AND cm.course_id = ?
         AND cm.type = 'quiz'
+        AND qs.grade REGEXP '^[0-9]+(\\.[0-9]+)?$'
+        AND CAST(qs.grade AS DECIMAL(10,2)) >= 50
     `;
 
     dbms.dbquery(totalQuizzesQuery, [courseId], (totalErr, totalRes) => {
@@ -833,61 +871,68 @@ app.post("/api/courses/:courseId/check-completion",
       }
 
       dbms.dbquery(
-        submittedQuizzesQuery,
+        passedQuizzesQuery,
         [req.user.email, courseId],
-        (submittedErr, submittedRes) => {
-          if (submittedErr) {
-            console.error("CHECK COMPLETION SUBMITTED QUIZZES ERROR:", submittedErr);
+        (passedErr, passedRes) => {
+          if (passedErr) {
+            console.error("CHECK COMPLETION PASSED QUIZZES ERROR:", passedErr);
             return res.status(500).json({
               success: false,
               message: "Failed to check completion",
             });
           }
 
-          const totalQuizzes = totalRes?.[0]?.totalQuizzes || 0;
-          const submittedQuizzes = submittedRes?.[0]?.submittedQuizzes || 0;
+          const totalQuizzes = Number(totalRes?.[0]?.totalQuizzes || 0);
+          const passedQuizzes = Number(passedRes?.[0]?.passedQuizzes || 0);
+
+          const progress =
+            totalQuizzes > 0
+              ? Math.round((passedQuizzes / totalQuizzes) * 100)
+              : 0;
 
           const isCompleted =
-            totalQuizzes > 0 && submittedQuizzes >= totalQuizzes;
-
-          if (!isCompleted) {
-            return res.json({
-              success: true,
-              data: {
-                completed: false,
-                totalQuizzes,
-                submittedQuizzes,
-              },
-            });
-          }
+            totalQuizzes > 0 && passedQuizzes >= totalQuizzes;
 
           const updateQuery = `
             UPDATE educator_course_assignments
-            SET status = 'completed'
+            SET
+              progress = ?,
+              status = ?
             WHERE educator_email = ?
               AND course_id = ?
-              AND status IN ('assigned', 'in_progress')
           `;
 
-          dbms.dbquery(updateQuery, [req.user.email, courseId], (updateErr) => {
-            if (updateErr) {
-              console.error("CHECK COMPLETION UPDATE ERROR:", updateErr);
-              return res.status(500).json({
-                success: false,
-                message: "Failed to update completion status",
+          dbms.dbquery(
+            updateQuery,
+            [
+              progress,
+              isCompleted ? "completed" : "in_progress",
+              req.user.email,
+              courseId,
+            ],
+            (updateErr) => {
+              if (updateErr) {
+                console.error("CHECK COMPLETION UPDATE ERROR:", updateErr);
+                return res.status(500).json({
+                  success: false,
+                  message: "Failed to update completion status",
+                });
+              }
+
+              return res.json({
+                success: true,
+                data: {
+                  completed: isCompleted,
+                  totalQuizzes,
+                  passedQuizzes,
+                  progress,
+                },
+                message: isCompleted
+                  ? "Course marked as completed"
+                  : "Course progress updated",
               });
             }
-
-            return res.json({
-              success: true,
-              data: {
-                completed: true,
-                totalQuizzes,
-                submittedQuizzes,
-              },
-              message: "Course marked as completed",
-            });
-          });
+          );
         }
       );
     });
@@ -1084,6 +1129,15 @@ app.post("/api/courses/:id/modules",
         });
       }
 
+      recalculateCourseCounts(id, (recalcErr, counts) => {
+      if (recalcErr) {
+      console.error("RECALCULATE COURSE COUNTS ERROR:", recalcErr);
+      return res.status(500).json({
+        success: false,
+        message: "Module added, but failed to update course counts",
+      });
+      }
+
       return res.json({
         success: true,
         message: `${type === "quiz" ? "Quiz" : "Module"} added successfully`,
@@ -1096,11 +1150,14 @@ app.post("/api/courses/:id/modules",
           file_url: fileUrl,
           file_type: fileType,
           position: nextPosition,
-        },
+          },
+          counts,
+        });
       });
     });
+
   });
-});
+}),
 
 app.post("/api/modules/:moduleId/upload",
   authenticateToken,

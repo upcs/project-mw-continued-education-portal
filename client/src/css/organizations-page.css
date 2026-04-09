@@ -1,0 +1,362 @@
+.organizations-page {
+  padding: 2rem;
+  background: #f8fafc;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.organizations-page__header {
+  margin-bottom: 1.5rem;
+}
+
+.organizations-page__title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #101828;
+}
+
+.organizations-page__subtitle {
+  margin: 0.4rem 0 0;
+  color: #667085;
+  font-size: 0.98rem;
+}
+
+.organizations-page__message,
+.organizations-page__error {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+.organizations-page__message {
+  background: #ecfdf3;
+  color: #027a48;
+  border: 1px solid #abefc6;
+}
+
+.organizations-page__error {
+  background: #fef3f2;
+  color: #b42318;
+  border: 1px solid #fecdca;
+}
+
+.organizations-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.organizations-stat-card {
+  background: #ffffff;
+  border: 1px solid #eaecf0;
+  border-radius: 18px;
+  padding: 1.2rem;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+}
+
+.organizations-stat-card__label {
+  margin: 0;
+  color: #667085;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.organizations-stat-card__value {
+  margin: 0.55rem 0 0;
+  color: #101828;
+  font-size: 1.75rem;
+}
+
+.organizations-page__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.organizations-card {
+  background: #ffffff;
+  border: 1px solid #eaecf0;
+  border-radius: 20px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+}
+
+.organizations-card__header {
+  margin-bottom: 1rem;
+}
+
+.organizations-card__header h2 {
+  margin: 0;
+  color: #101828;
+  font-size: 1.15rem;
+}
+
+.organizations-card__header p {
+  margin: 0.4rem 0 0;
+  color: #667085;
+  font-size: 0.94rem;
+}
+
+.organizations-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.organizations-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.organizations-field span {
+  color: #344054;
+  font-weight: 600;
+  font-size: 0.94rem;
+}
+
+.organizations-field input,
+.organizations-search input,
+.organization-row__controls select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #101828;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.organizations-field input:focus,
+.organizations-search input:focus,
+.organization-row__controls select:focus {
+  border-color: #98a2b3;
+  box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.06);
+}
+
+.organizations-primary-btn,
+.organizations-secondary-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.organizations-primary-btn:hover,
+.organizations-secondary-btn:hover {
+  transform: translateY(-1px);
+}
+
+.organizations-primary-btn {
+  background: #111827;
+  color: #ffffff;
+}
+
+.organizations-secondary-btn {
+  background: #ecfdf3;
+  color: #027a48;
+  border: 1px solid #abefc6;
+}
+
+.organizations-primary-btn:disabled,
+.organizations-secondary-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.organizations-search {
+  display: flex;
+}
+
+.organizations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.organization-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.25rem;
+  border: 1px solid #eaecf0;
+  border-radius: 16px;
+  padding: 1rem;
+  background: #fcfcfd;
+}
+
+.organization-row__info h3 {
+  margin: 0 0 0.5rem;
+  color: #101828;
+  font-size: 1.05rem;
+}
+
+.organization-row__info p {
+  margin: 0.25rem 0;
+  color: #667085;
+  font-size: 0.94rem;
+}
+
+.organization-row__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 320px;
+}
+
+.organizations-empty {
+  margin: 0;
+  color: #667085;
+}
+
+@media (max-width: 900px) {
+  .organizations-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .organizations-page__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .organization-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .organization-row__controls {
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .organizations-page {
+    padding: 1rem;
+  }
+
+  .organizations-page__title {
+    font-size: 1.6rem;
+  }
+}
+
+.organization-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.organization-row__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.organization-members {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.organization-members__section {
+  border: 1px solid #eaecf0;
+  border-radius: 16px;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.organization-members__header {
+  margin-bottom: 0.75rem;
+}
+
+.organization-members__header h4 {
+  margin: 0;
+  color: #101828;
+  font-size: 1rem;
+}
+
+.organization-members__header p {
+  margin: 0.35rem 0 0;
+  color: #667085;
+  font-size: 0.9rem;
+}
+
+.organization-members__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.organization-member-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid #eaecf0;
+  border-radius: 14px;
+  padding: 0.85rem 0.9rem;
+  background: #fcfcfd;
+}
+
+.organization-member-chip strong {
+  color: #101828;
+  display: block;
+}
+
+.organization-member-chip p {
+  margin: 0.2rem 0 0;
+  color: #667085;
+  font-size: 0.9rem;
+}
+
+.organization-add-user {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.organization-add-user select {
+  flex: 1;
+}
+
+.organizations-remove-btn {
+  border: 1px solid #fecdca;
+  background: #fef3f2;
+  color: #b42318;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.organizations-remove-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .organization-row__top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .organization-members {
+    grid-template-columns: 1fr;
+  }
+
+  .organization-add-user {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
