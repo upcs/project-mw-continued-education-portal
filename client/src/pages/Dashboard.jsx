@@ -152,12 +152,19 @@ export default function Dashboard() {
           </section>
 
           <section className="dashboard-section">
-            <h2 className="dashboard-section__title">My Courses</h2>
+            <h2 className="dashboard-section__title">
+              {user?.role === "trainer" ? "Courses Trainer Contributed To" : "My Courses"}
+            </h2>
 
             {loadingCourses && <p>Loading...</p>}
             {coursesError && <p>{coursesError}</p>}
             {!loadingCourses && !coursesError && courses.length === 0 && (
-              <p>No courses</p>
+              <p>
+                {user?.role === "trainer"
+                  ? "You have not contributed to any courses yet."
+                  : "No Courses"
+                }
+              </p>
             )}
 
             <div className="dashboard-course-grid">
