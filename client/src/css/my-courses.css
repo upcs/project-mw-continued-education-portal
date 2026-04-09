@@ -132,3 +132,55 @@
     font-size: 1.6rem;
   }
 }
+
+.my-courses-toggle-btn {
+  background: #111827;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.my-courses-toggle-btn:hover {
+  transform: translateY(-1px);
+}
+
+.my-courses-admin-tools {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.my-courses-trainer-controls {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.my-courses-toggle-btn {
+  background: #111827;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.my-courses-toggle-btn:hover {
+  opacity: 0.95;
+}
+
+.my-courses-select {
+  min-width: 220px;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #101828;
+  font-size: 0.95rem;
+}

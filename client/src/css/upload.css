@@ -244,12 +244,6 @@
   gap: 1rem;
 }
 
-.upload-form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
 .upload-field {
   display: flex;
   flex-direction: column;
@@ -283,7 +277,7 @@
 }
 
 .upload-field textarea {
-  min-height: 140px;
+  min-height: 150px;
   resize: vertical;
 }
 
@@ -329,10 +323,6 @@
 @media (max-width: 640px) {
   .upload-page {
     padding: 1rem;
-  }
-
-  .upload-form-row {
-    grid-template-columns: 1fr;
   }
 
   .upload-form-actions {

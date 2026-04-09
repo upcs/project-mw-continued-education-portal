@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import "../css/upload.css";
 import API from "../api/api";
 
-
 export default function UploadCourse() {
   const thumbnailInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -10,9 +9,6 @@ export default function UploadCourse() {
   const [formData, setFormData] = useState({
     title: "",
     instructor: "",
-    lessons: "",
-    quizzes: "",
-    progress: "",
     description: "",
   });
 
@@ -44,11 +40,9 @@ export default function UploadCourse() {
     setFormData({
       title: "",
       instructor: "",
-      lessons: "",
-      quizzes: "",
-      progress: "",
       description: "",
     });
+
     setThumbnail(null);
     setCourseFile(null);
     setThumbnailPreview("");
@@ -56,6 +50,7 @@ export default function UploadCourse() {
     setFileObjectUrl("");
     setFileType("");
     setError("");
+    setMessage("");
     resetFileInputValues();
   };
 
@@ -68,6 +63,8 @@ export default function UploadCourse() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    setError("");
+    setMessage("");
 
     setFormData((prev) => ({
       ...prev,
@@ -95,19 +92,16 @@ export default function UploadCourse() {
     const fileName = file.name.toLowerCase();
     const detectedType = file.type || "";
 
-    const isPdf =
-      detectedType.includes("pdf") || fileName.endsWith(".pdf");
-
+    const isPdf = detectedType.includes("pdf") || fileName.endsWith(".pdf");
     const isText =
       detectedType.startsWith("text/") ||
       fileName.endsWith(".txt") ||
       fileName.endsWith(".md");
-
     const isImage = detectedType.startsWith("image/");
     const isVideo = detectedType.startsWith("video/");
 
     if (!isImage && !isVideo && !isPdf && !isText) {
-      setError("Only images, videos, PDFs, and text files are allowed for course files.");
+      setError("Only images, videos, PDFs, and text files are allowed.");
       return;
     }
 
@@ -154,55 +148,53 @@ export default function UploadCourse() {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
-  setMessage("");
+    e.preventDefault();
+    setError("");
+    setMessage("");
 
-  if (!formData.title.trim()) {
-    setError("Course title is required.");
-    return;
-  }
-
-  if (!formData.instructor.trim()) {
-    setError("Instructor name is required.");
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    const data = new FormData();
-    data.append("title", formData.title);
-    data.append("instructor", formData.instructor);
-    data.append("description", formData.description);
-
-    if (thumbnail) {
-      data.append("thumbnail", thumbnail);
+    if (!formData.title.trim()) {
+      setError("Course title is required.");
+      return;
     }
 
-    if (courseFile) {
-      data.append("courseFile", courseFile);
+    if (!formData.instructor.trim()) {
+      setError("Instructor name is required.");
+      return;
     }
 
-    const response = await API.post("/courses/upload", data, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+    try {
+      setLoading(true);
 
-    const result = response.data;
+      const data = new FormData();
+      data.append("title", formData.title.trim());
+      data.append("instructor", formData.instructor.trim());
+      data.append("description", formData.description.trim());
 
-    if (!result.success) {
-      throw new Error(result.message || "Failed to upload course");
-    }
+      if (thumbnail) {
+        data.append("thumbnail", thumbnail);
+      }
 
-    clearAll();
-    setMessage("Course uploaded successfully.");
+      if (courseFile) {
+        data.append("courseFile", courseFile);
+      }
+
+      const response = await API.post("/courses/upload", data);
+
+      const result = response.data;
+
+      if (!result?.success) {
+        throw new Error(result?.message || "Failed to upload course");
+      }
+
+      clearAll();
+      setMessage("Course uploaded successfully.");
     } catch (err) {
-    console.error("UPLOAD ERROR:", err);
-    setError(err?.response?.data?.message || err.message);
+      console.error("UPLOAD ERROR:", err);
+      setError(
+        err?.response?.data?.message || err.message || "Something went wrong."
+      );
     } finally {
-    setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -211,9 +203,7 @@ export default function UploadCourse() {
 
     const fileName = courseFile.name.toLowerCase();
 
-    const isPdf =
-      fileType.includes("pdf") || fileName.endsWith(".pdf");
-
+    const isPdf = fileType.includes("pdf") || fileName.endsWith(".pdf");
     const isText =
       fileType.startsWith("text/") ||
       fileName.endsWith(".txt") ||
@@ -248,27 +238,20 @@ export default function UploadCourse() {
     }
 
     if (isText) {
-      return (
-        <pre className="upload-preview-textbox">
-          {filePreview}
-        </pre>
-      );
+      return <pre className="upload-preview-textbox">{filePreview}</pre>;
     }
 
-    return (
-      <p className="upload-preview-text">
-        Selected file: {courseFile.name}
-      </p>
-    );
+    return <p className="upload-preview-text">Selected file: {courseFile.name}</p>;
   };
 
-   return (
+  return (
     <section className="upload-page">
       <div className="upload-page__header">
         <div>
           <h1 className="upload-page__title">Upload Course</h1>
           <p className="upload-page__subtitle">
-            Add a new course with a thumbnail, course file, and course details.
+            Upload the main course file. Lesson count, quiz count, and learner
+            progress are calculated automatically later from modules and quizzes.
           </p>
         </div>
       </div>
@@ -278,7 +261,7 @@ export default function UploadCourse() {
           <div className="upload-card">
             <div className="upload-card__header">
               <h2>Course Files</h2>
-              <p>Upload the main learning file and an optional thumbnail.</p>
+              <p>Upload the main course file and an optional thumbnail.</p>
             </div>
 
             <div
@@ -380,7 +363,7 @@ export default function UploadCourse() {
           <div className="upload-card">
             <div className="upload-card__header">
               <h2>Course Details</h2>
-              <p>Fill in the information learners will see.</p>
+              <p>Fill in the base information for the course.</p>
             </div>
 
             <div className="upload-form-grid">
@@ -418,11 +401,13 @@ export default function UploadCourse() {
             </div>
 
             <p className="upload-note">
-              You can edit course details later after publishing.
+              After upload, trainers can add modules and quizzes to this course.
             </p>
 
             {error && <p className="upload-message upload-message--error">{error}</p>}
-            {message && <p className="upload-message upload-message--success">{message}</p>}
+            {message && (
+              <p className="upload-message upload-message--success">{message}</p>
+            )}
 
             <div className="upload-form-actions">
               <button

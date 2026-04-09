@@ -450,9 +450,10 @@ app.post( "/api/courses/upload",
         description,
         thumbnail,
         file_url,
-        file_type
+        file_type,
+        uploaded_by_email
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -465,6 +466,7 @@ app.post( "/api/courses/upload",
       thumbnailUrl,
       fileUrl,
       fileType,
+      req.user.email,
     ];
 
     dbms.dbquery(query, values, (err, response) => {
@@ -565,11 +567,11 @@ app.get("/api/courses", (req, res) => {
   });
 });
 
-
 app.get("/api/courses/enrolled", authenticateToken, (req, res) => {
   const { role, email } = req.user;
+  const asTrainer = req.query.asTrainer === "true";
+  const trainerEmail = req.query.trainerEmail;
 
-  // Educator view
   if (role === "educator") {
     const query = `
       SELECT
@@ -582,6 +584,7 @@ app.get("/api/courses/enrolled", authenticateToken, (req, res) => {
         c.thumbnail,
         c.description,
         eca.status AS assignment_status,
+        eca.source,
         eca.assigned_at
       FROM educator_course_assignments eca
       LEFT JOIN courses c ON c.id = eca.course_id
@@ -589,41 +592,105 @@ app.get("/api/courses/enrolled", authenticateToken, (req, res) => {
       ORDER BY eca.assigned_at DESC
     `;
 
-    dbms.dbquery(query, [email], (err, results) => {
+    dbms.dbquery(query, [email], (err, response) => {
       if (err) {
-        console.error("GET ENROLLED COURSES ERROR:", err);
+        console.error("EDUCATOR COURSES ERROR:", err);
         return res.status(500).json({
           success: false,
-          message: "Failed to fetch enrolled courses",
+          message: "Failed to fetch educator courses",
         });
       }
 
       return res.json({
         success: true,
-        data: results,
+        data: response || [],
       });
     });
 
     return;
   }
 
-  // Admin / trainer / principal view (all courses)
+  if (role === "trainer" || (role === "admin" && asTrainer)) {
+    const effectiveEmail =
+      role === "trainer"
+        ? email
+        : trainerEmail || email;
+
+    const query = `
+      SELECT DISTINCT
+        c.id,
+        c.title,
+        c.instructor,
+        c.lessons,
+        c.quizzes,
+        c.progress,
+        c.thumbnail,
+        c.description,
+        c.file_url,
+        c.file_type,
+        c.uploaded_by_email,
+        CASE
+          WHEN c.uploaded_by_email = ? THEN 'Uploaded Course'
+          WHEN EXISTS (
+            SELECT 1
+            FROM course_modules cm_quiz
+            WHERE cm_quiz.course_id = c.id
+              AND cm_quiz.created_by_email = ?
+              AND cm_quiz.type = 'quiz'  
+          ) THEN 'Added Quiz'
+          WHEN EXISTS (
+            SELECT 1
+            FROM course_modules cm_module
+            WHERE cm_module.course_id = c.id
+              AND cm_module.created_by_email = ?
+              AND cm_module.type <> 'quiz'  
+          ) THEN 'Added Module'
+          ELSE 'Contributed'
+        END AS contributed_type
+      FROM courses c
+      LEFT JOIN course_modules cm ON cm.course_id = c.id
+      WHERE c.uploaded_by_email = ?
+         OR cm.created_by_email = ?
+      ORDER BY c.id DESC
+    `;
+
+    dbms.dbquery(query, [effectiveEmail, effectiveEmail, effectiveEmail, effectiveEmail, effectiveEmail], (err, response) => {
+      if (err) {
+        console.error("TRAINER CONTRIBUTED COURSES ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch trainer courses",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: response || [],
+      });
+    });
+
+    return;
+  }
+
   const query = `
     SELECT
-      c.id,
-      c.title,
-      c.instructor,
-      c.lessons,
-      c.quizzes,
-      c.thumbnail,
-      c.description
-    FROM courses c
-    ORDER BY c.id DESC
+      id,
+      title,
+      instructor,
+      lessons,
+      quizzes,
+      progress,
+      thumbnail,
+      description,
+      file_url,
+      file_type
+    FROM courses
+    ORDER BY id DESC
   `;
 
-  dbms.dbquery(query, [], (err, results) => {
+  dbms.dbquery(query, [], (err, response) => {
     if (err) {
-      console.error("GET COURSES ERROR:", err);
+      console.error("ALL COURSES ERROR:", err);
       return res.status(500).json({
         success: false,
         message: "Failed to fetch courses",
@@ -632,7 +699,7 @@ app.get("/api/courses/enrolled", authenticateToken, (req, res) => {
 
     return res.json({
       success: true,
-      data: results,
+      data: response || [],
     });
   });
 });
@@ -1105,9 +1172,10 @@ app.post("/api/courses/:id/modules",
         content,
         file_url,
         file_type,
-        position
+        position,
+        created_by_email
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -1118,6 +1186,7 @@ app.post("/api/courses/:id/modules",
       fileUrl,
       fileType,
       nextPosition,
+      req.user.email,
     ];
 
     dbms.dbquery(insertQuery, values, (insertErr, response) => {
@@ -1719,6 +1788,225 @@ app.post("/api/profile/upload-photo", authenticateToken, upload.single("photo"),
     return res.json({
       success: true,
       photoUrl,
+    });
+  });
+});
+
+
+app.get("/api/discussions", authenticateToken, (req, res) => {
+  const query = `
+    SELECT
+      d.id,
+      d.title,
+      d.question,
+      d.author_email,
+      d.created_at,
+      p.fullname,
+      p.role,
+      p.photo
+    FROM discussions d
+    LEFT JOIN profile p ON p.email = d.author_email
+    ORDER BY d.created_at DESC
+  `;
+
+  dbms.dbquery(query, [], (err, response) => {
+    if (err) {
+      console.error("GET DISCUSSIONS ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch discussions",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: response || [],
+    });
+  });
+});
+
+app.post("/api/discussions", authenticateToken, (req, res) => {
+  const { title, question } = req.body;
+
+  if (!title?.trim() || !question?.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: "Title and question are required",
+    });
+  }
+
+  const query = `
+    INSERT INTO discussions (author_email, title, question)
+    VALUES (?, ?, ?)
+  `;
+
+  dbms.dbquery(
+    query,
+    [req.user.email, title.trim(), question.trim()],
+    (err, response) => {
+      if (err) {
+        console.error("CREATE DISCUSSION ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to create discussion",
+        });
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: "Discussion created successfully",
+        discussionId: response.insertId,
+      });
+    }
+  );
+});
+
+app.get("/api/discussions/:id", authenticateToken, (req, res) => {
+  const { id } = req.params;
+
+  const discussionQuery = `
+    SELECT
+      d.id,
+      d.title,
+      d.question,
+      d.author_email,
+      d.created_at,
+      p.fullname,
+      p.role,
+      p.photo
+    FROM discussions d
+    LEFT JOIN profile p ON p.email = d.author_email
+    WHERE d.id = ?
+    LIMIT 1
+  `;
+
+  const repliesQuery = `
+    SELECT
+      r.id,
+      r.discussion_id,
+      r.reply,
+      r.author_email,
+      r.created_at,
+      p.fullname,
+      p.role,
+      p.photo
+    FROM discussion_replies r
+    LEFT JOIN profile p ON p.email = r.author_email
+    WHERE r.discussion_id = ?
+    ORDER BY r.created_at ASC
+  `;
+
+  dbms.dbquery(discussionQuery, [id], (discussionErr, discussionRes) => {
+    if (discussionErr) {
+      console.error("GET DISCUSSION ERROR:", discussionErr);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch discussion",
+      });
+    }
+
+    if (!discussionRes || discussionRes.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Discussion not found",
+      });
+    }
+
+    dbms.dbquery(repliesQuery, [id], (repliesErr, repliesRes) => {
+      if (repliesErr) {
+        console.error("GET DISCUSSION REPLIES ERROR:", repliesErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch discussion replies",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          discussion: discussionRes[0],
+          replies: repliesRes || [],
+        },
+      });
+    });
+  });
+});
+
+app.post("/api/discussions/:id/replies", authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { reply } = req.body;
+
+  if (!reply?.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: "Reply is required",
+    });
+  }
+
+  const query = `
+    INSERT INTO discussion_replies (discussion_id, author_email, reply)
+    VALUES (?, ?, ?)
+  `;
+
+  dbms.dbquery(query, [id, req.user.email, reply.trim()], (err) => {
+    if (err) {
+      console.error("CREATE DISCUSSION REPLY ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to post reply",
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Reply posted successfully",
+    });
+  });
+});
+
+app.get("/api/profile/view", authenticateToken, (req, res) => {
+  const { email } = req.query;
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: "Email is required",
+    });
+  }
+
+  const query = `
+    SELECT
+      email,
+      fullname,
+      role,
+      photo,
+      whatsapp,
+      organization,
+      specialization
+    FROM profile
+    WHERE email = ?
+    LIMIT 1
+  `;
+
+  dbms.dbquery(query, [email], (err, response) => {
+    if (err) {
+      console.error("PROFILE VIEW ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load profile",
+      });
+    }
+
+    if (!response || response.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Profile not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: response[0],
     });
   });
 });

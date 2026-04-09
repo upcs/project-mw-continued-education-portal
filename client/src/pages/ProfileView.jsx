@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "../css/profile-view.css";
 import API from "../api/api";
@@ -7,6 +8,12 @@ const defaultPhoto =
   "https://via.placeholder.com/400x400.png?text=Profile";
 
 export default function ProfileView() {
+
+  const [searchParams] = useSearchParams();
+  const requestedEmail = searchParams.get("email");
+  const isOwnProfile = !requestedEmail || requestedEmail === user?.email;
+  const pageTitle = isOwnProfile ? "Account Management" : "User Information";
+
   const { user, setUser } = useAuth();
 
   const [profile, setProfile] = useState({
@@ -28,6 +35,7 @@ export default function ProfileView() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const canEdit = isOwnProfile;
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
@@ -37,7 +45,12 @@ export default function ProfileView() {
       setMessage("");
 
       try {
-      const response = await API.get("/profile/me");
+
+        const endpoint = requestedEmail
+        ? `/profile/view?email=${encodeURIComponent(requestedEmail)}`
+        : "/profile/me";
+
+        const response = await API.get(endpoint);
 
         const data = response.data;
 
@@ -338,7 +351,7 @@ export default function ProfileView() {
 
       <form className="profile-view__grid" onSubmit={handleSaveProfile}>
         <section className="profile-card profile-card--left">
-          <h2 className="profile-card__title">Account Management</h2>
+          <h2 className="profile-card__title">{pageTitle}</h2>
 
           <div className="profile-photo-card">
             <div className="profile-photo-card__image-wrap">
@@ -350,7 +363,7 @@ export default function ProfileView() {
                   e.currentTarget.src = defaultPhoto;
                 }}
               />
-              {isEditing && (
+              {isEditing && canEdit && (
                 <button
                   type="button"
                   className="profile-photo-card__remove"
@@ -361,7 +374,7 @@ export default function ProfileView() {
               )}
             </div>
 
-            {isEditing && (
+            {isEditing && canEdit && (
               <label className="profile-photo-card__upload">
                 Upload Photo
                 <input
@@ -373,7 +386,7 @@ export default function ProfileView() {
               </label>
             )}
           </div>
-
+        {canEdit && (
           <div className="profile-password-box">
             <label className="profile-field">
               <span className="profile-field__label">Old Password</span>
@@ -408,6 +421,7 @@ export default function ProfileView() {
               {passwordSaving ? "Changing..." : "Change Password"}
             </button>
           </div>
+          )}
         </section>
 
         <section className="profile-card profile-card--right">
@@ -431,7 +445,7 @@ export default function ProfileView() {
                   onChange={handleChange}
                   className="profile-field__input"
                   placeholder="Enter full name"
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEdit}
                 />
               </label>
 
@@ -466,7 +480,7 @@ export default function ProfileView() {
                   onChange={handleChange}
                   className="profile-field__input"
                   placeholder="Enter WhatsApp number"
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEdit}
                 />
               </label>
 
@@ -479,7 +493,7 @@ export default function ProfileView() {
                   onChange={handleChange}
                   className="profile-field__input"
                   placeholder="Enter organization"
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEdit}
                 />
               </label>
 
@@ -492,14 +506,14 @@ export default function ProfileView() {
                   onChange={handleChange}
                   className="profile-field__input"
                   placeholder="Enter specialization"
-                  disabled={!isEditing}
+                  disabled={!isEditing || !canEdit}
                 />
               </label>
             </div>
           </div>
 
           <div className="profile-actions">
-            {isEditing && (
+            {isEditing && canEdit && (
               <button
                 type="button"
                 className="profile-btn profile-btn--ghost"
@@ -508,7 +522,7 @@ export default function ProfileView() {
                 Cancel
               </button>
             )}
-
+            {canEdit && (
             <button
               type="submit"
               className="profile-btn profile-btn--primary"
@@ -516,6 +530,8 @@ export default function ProfileView() {
             >
               {saving ? "Saving..." : isEditing ? "Save Changes" : "Edit Profile"}
             </button>
+            )}
+
           </div>
         </section>
       </form>
