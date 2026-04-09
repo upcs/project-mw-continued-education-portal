@@ -2935,6 +2935,7 @@ app.post("/api/myinfo", (req, res) => {
 });
 
 
+//---Google Search and YouTube Frame---
 app.get("/api/resources/search", async (req, res) => {
   const { q = "", source = "google" } = req.query;
 
