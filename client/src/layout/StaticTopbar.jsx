@@ -1,43 +1,28 @@
 import { Search, Bell, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import "../css/topbar.css";
-import API from "../api/api";
 
 export default function Topbar() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [links, setLinks] = useState([]);
   const [filteredLinks, setFilteredLinks] = useState([]);
 
-  // ✅ Fetch courses from API
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const { data } = await API.get("/courses");
-	console.log("data: ", data);
-	console.log("keys ", Object.keys(data));
-        // Convert API data into searchable links
-        const formattedLinks = data.data.map((item) => ({
-          name: item.title,
-          href: `http://cs341s26mwed.campus.up.edu:3000/course-details/${item.id}`,
-        }));
+  // ✅ STATIC DATA
+  const links = [
+    { name: "React Course", href: "/" },
+    { name: "JavaScript Basics", href: "/" },
+    { name: "CSS Mastery", href: "/" },
+    { name: "Node.js Guide", href: "/" },
+    { name: "Python for Beginners", href: "/" },
+  ];
 
-        setLinks(formattedLinks);
-      } catch (error) {
-        console.error("API error:", error);
-      }
-    };
-
-    fetchCourses();
-  }, []);
-
-  // ✅ Filter when user types
+  // ✅ FILTER LOGIC
   useEffect(() => {
     const results = links.filter((link) =>
       link.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredLinks(results);
-  }, [searchTerm, links]);
+  }, [searchTerm]);
 
   return (
     <header className="topbar">
@@ -62,7 +47,7 @@ export default function Topbar() {
                 <button
                   key={index}
                   className="dropdown-item"
-                  onMouseDown={() => (window.location.href = link.href)}
+                  onMouseDown={() => alert(link.name)}
                 >
                   {link.name}
                 </button>
