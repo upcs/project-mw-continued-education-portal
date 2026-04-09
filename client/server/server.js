@@ -14,7 +14,8 @@ const PORT = process.env.PORT || 5000;
 //const PORT = 5000;
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
+const APP_BASE_URL = `http://cs341s26mwed.campus.up.edu:${PORT}`;
+//const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
 
 if (!JWT_SECRET){
     throw new Error("Missing JWT_SECRET in environment variables.");

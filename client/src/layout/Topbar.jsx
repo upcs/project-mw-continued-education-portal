@@ -4,6 +4,7 @@ import "../css/topbar.css";
 import API from "../api/api";
 
 export default function Topbar() {
+//search bar stuff
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [links, setLinks] = useState([]);
@@ -39,6 +40,31 @@ export default function Topbar() {
     setFilteredLinks(results);
   }, [searchTerm, links]);
 
+
+//settings stuff
+const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+const [isMuted, setIsMuted] = useState(false);
+const [isDarkMode, setIsDarkMode] = useState(false);
+const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+useEffect(() => {
+  const handleClickOutside = (e) => {
+    if (!e.target.closest(".settings-container")) setIsSettingsOpen(false);
+  };
+  document.addEventListener("click", handleClickOutside);
+  return () => document.removeEventListener("click", handleClickOutside);
+}, []);
+
+useEffect(() => {
+  document.body.classList.toggle("dark-mode", isDarkMode);
+}, [isDarkMode]);
+
+useEffect(() => {
+  const media = document.querySelectorAll("audio, video");
+  media.forEach(m => m.muted = isMuted);
+}, [isMuted]);
+
+//the react
   return (
     <header className="topbar">
       <h1 className="title">UPLENDO LEARNING PLATFORM</h1>
@@ -80,9 +106,47 @@ export default function Topbar() {
           <span className="topbar__notif-dot" />
         </button>
 
-        <button className="topbar__icon-btn">
-          <Settings size={20} />
-        </button>
+        <div className="settings-container">
+  <button
+    className="topbar__icon-btn"
+    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+  >
+    <Settings size={20} />
+  </button>
+
+  {isSettingsOpen && (
+    <div className="settings-dropdown">
+      <h4>Settings</h4>
+      
+      <label className="settings-option">
+        <span>Mute</span>
+        <input
+          type="checkbox"
+          checked={isMuted}
+          onChange={() => setIsMuted(!isMuted)}
+        />
+      </label>
+
+      <label className="settings-option">
+        <span>Dark Mode</span>
+        <input
+          type="checkbox"
+          checked={isDarkMode}
+          onChange={() => setIsDarkMode(!isDarkMode)}
+        />
+      </label>
+
+      <label className="settings-option">
+        <span>Notifications</span>
+        <input
+          type="checkbox"
+          checked={notificationsEnabled}
+          onChange={() => setNotificationsEnabled(!notificationsEnabled)}
+        />
+      </label>
+    </div>
+  )}
+</div>
       </div>
     </header>
   );
