@@ -153,6 +153,8 @@ function extractYouTubeId(url = "") {
 }
 
 function getUserWithProfileByEmail(email, callback) {
+
+  const normalizedEmail = String(email).trim().toLocaleLowerCase();
   const query = `
     SELECT
       u.id,
@@ -160,19 +162,50 @@ function getUserWithProfileByEmail(email, callback) {
       u.password,
       COALESCE(p.fullname, '') AS fullname,
       COALESCE(p.role, 'educator') AS role,
-      COALESCE(p.organization, '') AS organization,
+      COALESCE(o.name, '') AS organization,
+      p.organization_id,
       COALESCE(p.photo, '') AS photo,
       COALESCE(p.whatsapp, '') AS whatsapp,
       COALESCE(p.specialization, '') AS specialization
     FROM users u
     LEFT JOIN profile p ON p.email = u.email
+    LEFT JOIN organizations o ON p.organization_id = o.id
     WHERE u.email = ?
     LIMIT 1
   `;
 
-  dbms.dbquery(query, [email], callback);
+  dbms.dbquery(query, [normalizedEmail], callback);
 }
 
+function createNotification({
+  recipientEmail,
+  actorEmail = null,
+  type,
+  title,
+  message,
+  link = null,
+}, callback) {
+  const normalizedRecipient = String(recipientEmail).trim().toLowerCase();
+  const normalizedActor = actorEmail ? String(actorEmail).trim().toLowerCase() : null;
+
+  const query = `
+    INSERT INTO notifications (
+      recipient_email,
+      actor_email,
+      type,
+      title,
+      message,
+      link
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  dbms.dbquery(
+    query,
+    [normalizedRecipient, normalizedActor, type, title, message, link],
+    callback
+  );
+}
 
 
 app.get("/api/health", (req, res) => {
@@ -213,6 +246,7 @@ app.post("/api/auth/login", (req, res) => {
       fullname: user.fullname || "",
       role: user.role || "educator",
       organization: user.organization || "",
+      organization_id: user.organization_id || null,
       photo: user.photo || "",
       whatsapp: user.whatsapp || "",
       specialization: user.specialization || "",
@@ -256,6 +290,7 @@ app.get("/api/auth/me", authenticateToken, (req, res) => {
         fullname: user.fullname || "",
         role: user.role || "educator",
         organization: user.organization || "",
+        organization_id: user.organization_id || null,
         photo: user.photo || "",
         whatsapp: user.whatsapp || "",
         specialization: user.specialization || "",
@@ -1054,14 +1089,22 @@ app.get("/api/courses/:courseId/submissions",
   }
 );
 
-app.put("/api/submissions/:submissionId/grade",
+app.put( "/api/submissions/:submissionId/grade",
   authenticateToken,
   authorizeRoles("admin", "trainer"),
   (req, res) => {
-    const { submissionId } = req.params;
+    const submissionId = Number(req.params.submissionId);
     const { status, grade, feedback } = req.body;
+    const reviewerEmail = String(req.user.email).trim().toLowerCase();
 
     const allowedStatuses = ["submitted", "approved", "rejected"];
+
+    if (!Number.isInteger(submissionId) || submissionId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid submission id is required",
+      });
+    }
 
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(400).json({
@@ -1070,48 +1113,92 @@ app.put("/api/submissions/:submissionId/grade",
       });
     }
 
-    const query = `
-      UPDATE quiz_submissions
-      SET
-        status = ?,
-        grade = ?,
-        feedback = ?,
-        reviewed_by_email = ?,
-        reviewed_at = NOW()
-      WHERE id = ?
+    const submissionLookupQuery = `
+      SELECT
+        qs.id,
+        qs.user_email,
+        qs.course_id,
+        qs.module_id,
+        cm.title AS moduleTitle,
+        c.title AS courseTitle
+      FROM quiz_submissions qs
+      LEFT JOIN course_modules cm ON qs.module_id = cm.id
+      LEFT JOIN courses c ON qs.course_id = c.id
+      WHERE qs.id = ?
+      LIMIT 1
     `;
 
-    dbms.dbquery(
-      query,
-      [
-        status,
-        grade || "",
-        feedback || "",
-        req.user.email,
-        submissionId,
-      ],
-      (err, response) => {
-        if (err) {
-          console.error("GRADE SUBMISSION ERROR:", err);
-          return res.status(500).json({
-            success: false,
-            message: "Failed to grade submission",
-          });
-        }
-
-        if (!response || response.affectedRows === 0) {
-          return res.status(404).json({
-            success: false,
-            message: "Submission not found",
-          });
-        }
-
-        return res.json({
-          success: true,
-          message: "Submission graded successfully",
+    dbms.dbquery(submissionLookupQuery, [submissionId], (lookupErr, lookupRes) => {
+      if (lookupErr) {
+        console.error("SUBMISSION LOOKUP ERROR:", lookupErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load submission",
         });
       }
-    );
+
+      if (!lookupRes || lookupRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Submission not found",
+        });
+      }
+
+      const submission = lookupRes[0];
+
+      const updateQuery = `
+        UPDATE quiz_submissions
+        SET
+          status = ?,
+          grade = ?,
+          feedback = ?,
+          reviewed_by_email = ?,
+          reviewed_at = NOW()
+        WHERE id = ?
+      `;
+
+      dbms.dbquery(
+        updateQuery,
+        [status, grade || "", feedback || "", reviewerEmail, submissionId],
+        (err, response) => {
+          if (err) {
+            console.error("GRADE SUBMISSION ERROR:", err);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to grade submission",
+            });
+          }
+
+          if (!response || response.affectedRows === 0) {
+            return res.status(404).json({
+              success: false,
+              message: "Submission not found",
+            });
+          }
+
+          createNotification(
+            {
+              recipientEmail: submission.user_email,
+              actorEmail: reviewerEmail,
+              type: "submission_reviewed",
+              title: "Your quiz submission was reviewed",
+              message: `Your submission for "${submission.moduleTitle || "quiz"}" in "${submission.courseTitle || "course"}" was ${status}.`,
+              link: `/my-submissions`,
+            },
+            (notificationErr) => {
+              if (notificationErr) {
+                console.error("CREATE SUBMISSION REVIEW NOTIFICATION ERROR:", notificationErr);
+              }
+
+              return res.json({
+                success: true,
+                message: "Submission graded successfully",
+              });
+            }
+          );
+        }
+      );
+    });
   }
 );
 
@@ -1338,7 +1425,7 @@ app.post("/api/modules/:moduleId/submissions",
     const fileType = uploadedFile ? uploadedFile.mimetype || "" : "";
 
     const moduleQuery = `
-      SELECT id, course_id, type
+      SELECT id, course_id, type, title, created_by_email
       FROM course_modules
       WHERE id = ?
       LIMIT 1
@@ -1438,25 +1525,52 @@ app.post("/api/modules/:moduleId/submissions",
                 message: "Failed to submit quiz",
               });
             }
+            const sendSuccessResponse = () => {
+              return res.json({
+                success: true,
+                message: `Quiz submitted successfully (Attempt ${nextAttempt})`,
+                data: {
+                  id: insertRes.insertId,
+                  module_id: module.id,
+                  course_id: module.course_id,
+                  user_email: req.user.email,
+                  answer_text: answerText || "",
+                  file_url: fileUrl,
+                  file_type: fileType,
+                  status: "submitted",
+                  grade: "",
+                  feedback: "",
+                  attempt_number: nextAttempt,
+                  is_latest: 1,
+                },
+              });
+            };
 
-            return res.json({
-              success: true,
-              message: `Quiz submitted successfully (Attempt ${nextAttempt})`,
-              data: {
-                id: insertRes.insertId,
-                module_id: module.id,
-                course_id: module.course_id,
-                user_email: req.user.email,
-                answer_text: answerText || "",
-                file_url: fileUrl,
-                file_type: fileType,
-                status: "submitted",
-                grade: "",
-                feedback: "",
-                attempt_number: nextAttempt,
-                is_latest: 1,
+            const trainerEmail = module.created_by_email
+              ? String(module.created_by_email).trim().toLocaleLowerCase()
+              : null;
+
+            if (!trainerEmail || trainerEmail == req.user.email.toLocaleLowerCase()) {
+              return sendSuccessResponse();
+            }
+
+            createNotification({
+               
+                recipientEmail: trainerEmail,
+                actorEmail: req.user.email,
+                type: "quiz_submitted",
+                title: "New quiz submission received",
+                message: `A learner submitted "${module.title || "a quiz"}".`,
+                link: `/modules/${module.id}/submissions`,
               },
-            });
+              (notificationErr) => {
+                if (notificationErr) {
+                  console.error("CREATE QUIZ SUBMISSION NOTIFICATION ERROR:", notificationErr);
+                }
+
+                return sendSuccessResponse();
+              }
+            );
           });
         });
       });
@@ -1683,16 +1797,19 @@ app.get("/api/dashboard/trainer-stats",
 );
 
 app.get("/api/profile/me", authenticateToken, (req, res) => {
+  
   const query = `
     SELECT
-      COALESCE(photo, '') AS photo,
-      COALESCE(fullname, '') AS fullname,
-      COALESCE(role, 'educator') AS role,
-      email,
-      COALESCE(whatsapp, '') AS whatsapp,
-      COALESCE(organization, '') AS organization,
+      p.email,
+      COALESCE(p.photo, '') AS photo,
+      COALESCE(p.fullname, '') AS fullname,
+      COALESCE(p.role, 'educator') AS role,
+      COALESCE(p.whatsapp, '') AS whatsapp,
+      COALESCE(o.name, '') AS organization,
+      p.organization_id,
       COALESCE(specialization, '') AS specialization
-    FROM profile
+    FROM profile p
+    LEFT JOIN organizations on ON p.organization_id = o.id
     WHERE email = ?
     LIMIT 1
   `;
@@ -1725,7 +1842,6 @@ app.post("/api/profile/update", authenticateToken, (req, res) => {
     photo,
     fullname,
     whatsapp,
-    organization,
     specialization,
   } = req.body;
 
@@ -1735,7 +1851,6 @@ app.post("/api/profile/update", authenticateToken, (req, res) => {
       photo = ?,
       fullname = ?,
       whatsapp = ?,
-      organization = ?,
       specialization = ?
     WHERE email = ?
   `;
@@ -1744,7 +1859,6 @@ app.post("/api/profile/update", authenticateToken, (req, res) => {
     photo || "",
     fullname || "",
     whatsapp || "",
-    organization || "",
     specialization || "",
     req.user.email,
   ];
@@ -1934,34 +2048,105 @@ app.get("/api/discussions/:id", authenticateToken, (req, res) => {
 });
 
 app.post("/api/discussions/:id/replies", authenticateToken, (req, res) => {
-  const { id } = req.params;
-  const { reply } = req.body;
+  const discussionId = Number(req.params.id);
+  const replyText = String(req.body?.reply || "").trim();
+  const authorEmail = String(req.user.email).trim().toLowerCase();
 
-  if (!reply?.trim()) {
+  if (!Number.isInteger(discussionId) || discussionId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid discussion id is required",
+    });
+  }
+
+  if (!replyText) {
     return res.status(400).json({
       success: false,
       message: "Reply is required",
     });
   }
 
-  const query = `
-    INSERT INTO discussion_replies (discussion_id, author_email, reply)
-    VALUES (?, ?, ?)
+  const discussionOwnerQuery = `
+    SELECT author_email
+    FROM discussions
+    WHERE id = ?
+    LIMIT 1
   `;
 
-  dbms.dbquery(query, [id, req.user.email, reply.trim()], (err) => {
-    if (err) {
-      console.error("CREATE DISCUSSION REPLY ERROR:", err);
+  dbms.dbquery(discussionOwnerQuery, [discussionId], (ownerErr, ownerRes) => {
+    if (ownerErr) {
+      console.error("DISCUSSION OWNER LOOKUP ERROR:", ownerErr);
       return res.status(500).json({
         success: false,
-        message: "Failed to post reply",
+        message: "Failed to validate discussion",
       });
     }
 
-    return res.status(201).json({
-      success: true,
-      message: "Reply posted successfully",
-    });
+    if (!ownerRes || ownerRes.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Discussion not found",
+      });
+    }
+
+    const discussionAuthorEmail = ownerRes[0].author_email
+      ? String(ownerRes[0].author_email).trim().toLowerCase()
+      : null;
+
+    const insertReplyQuery = `
+      INSERT INTO discussion_replies (discussion_id, author_email, reply)
+      VALUES (?, ?, ?)
+    `;
+
+    dbms.dbquery(
+      insertReplyQuery,
+      [discussionId, authorEmail, replyText],
+      (insertErr, insertRes) => {
+        if (insertErr) {
+          console.error("CREATE DISCUSSION REPLY ERROR:", insertErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to post reply",
+          });
+        }
+
+        const sendSuccessResponse = () => {
+          return res.status(201).json({
+            success: true,
+            message: "Reply posted successfully",
+            replyId: insertRes?.insertId || null,
+          });
+        };
+
+        if (
+          !discussionAuthorEmail ||
+          discussionAuthorEmail === authorEmail
+        ) {
+          return sendSuccessResponse();
+        }
+
+        createNotification(
+          {
+            recipientEmail: discussionAuthorEmail,
+            actorEmail: authorEmail,
+            type: "discussion_reply",
+            title: "New reply to your discussion",
+            message: "Someone replied to your discussion.",
+            link: `/discussion?id=${discussionId}`,
+          },
+          (notificationErr) => {
+            if (notificationErr) {
+              console.error(
+                "CREATE DISCUSSION REPLY NOTIFICATION ERROR:",
+                notificationErr
+              );
+            }
+
+            return sendSuccessResponse();
+          }
+        );
+      }
+    );
   });
 });
 
@@ -1975,21 +2160,25 @@ app.get("/api/profile/view", authenticateToken, (req, res) => {
     });
   }
 
+  const normalizedEmail = String(email).trim().toLocaleLowerCase();
+
   const query = `
     SELECT
-      email,
-      fullname,
-      role,
-      photo,
-      whatsapp,
-      organization,
-      specialization
-    FROM profile
-    WHERE email = ?
+      p.email,
+      COALESCE(p.fullname, '') AS fullname,
+      COALESCE(p.role, 'educator') AS role,
+      COALESCE(p.photo, '') AS photo,
+      COALESCE(p.whatsapp, '') AS whatsapp,
+      COALESCE(o.name, '') AS organization,
+      p.organization_id,
+      COALESCE(p.specialization, '') AS specialization
+    FROM profile p
+    LEFT JOIN organizations o ON p.organization_id = o.id
+    WHERE p.email = ?
     LIMIT 1
   `;
 
-  dbms.dbquery(query, [email], (err, response) => {
+  dbms.dbquery(query, [normalizedEmail], (err, response) => {
     if (err) {
       console.error("PROFILE VIEW ERROR:", err);
       return res.status(500).json({
@@ -2240,14 +2429,25 @@ app.put( "/api/admin/organizations/:id/principal",
       });
     }
 
+    const orgId = Number(id);
+    const normalizedEmail = String(principalEmail).trim().toLowerCase();
+
+    if (!Number.isInteger(orgId) || orgId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid organization id is required",
+      });
+    }
+
     const principalCheckQuery = `
-      SELECT email, role
-      FROM profile
-      WHERE email = ?
+      SELECT u.email, p.role
+      FROM users u
+      JOIN profile p ON p.email = u.email
+      WHERE u.email = ?
       LIMIT 1
     `;
 
-    dbms.dbquery(principalCheckQuery, [principalEmail], (checkErr, checkRes) => {
+    dbms.dbquery(principalCheckQuery, [normalizedEmail], (checkErr, checkRes) => {
       if (checkErr) {
         console.error("PRINCIPAL CHECK ERROR:", checkErr);
         return res.status(500).json({
@@ -2259,7 +2459,7 @@ app.put( "/api/admin/organizations/:id/principal",
       if (!checkRes || checkRes.length === 0) {
         return res.status(404).json({
           success: false,
-          message: "Principal profile not found",
+          message: "Principal account/profile not found",
         });
       }
 
@@ -2270,33 +2470,176 @@ app.put( "/api/admin/organizations/:id/principal",
         });
       }
 
-      const updateQuery = `
-        UPDATE organizations
-        SET principal_email = ?
-        WHERE id = ?
+      const existingPrincipalOrgQuery = `
+        SELECT id
+        FROM organizations
+        WHERE LOWER(TRIM(principal_email)) = ?
+          AND id <> ?
+        LIMIT 1
       `;
 
-      dbms.dbquery(updateQuery, [principalEmail, id], (err, response) => {
-        if (err) {
-          console.error("ASSIGN PRINCIPAL ERROR:", err);
-          return res.status(500).json({
-            success: false,
-            message: "Failed to assign principal",
+      dbms.dbquery(
+        existingPrincipalOrgQuery,
+        [normalizedEmail, orgId],
+        (existingErr, existingRes) => {
+          if (existingErr) {
+            console.error("EXISTING PRINCIPAL ORG CHECK ERROR:", existingErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to validate principal organization assignment",
+            });
+          }
+
+          if (existingRes && existingRes.length > 0) {
+            return res.status(400).json({
+              success: false,
+              message: "This principal is already assigned to another organization",
+            });
+          }
+
+          const orgCheckQuery = `
+            SELECT id, name, principal_email
+            FROM organizations
+            WHERE id = ?
+            LIMIT 1
+          `;
+
+          
+
+          dbms.dbquery(orgCheckQuery, [orgId], (orgErr, orgRes) => {
+            if (orgErr) {
+              console.error("ORG CHECK ERROR:", orgErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to validate organization",
+              });
+            }
+            const organizationName = orgRes[0].name || "your organization";
+
+            if (!orgRes || orgRes.length === 0) {
+              return res.status(404).json({
+                success: false,
+                message: "Organization not found",
+              });
+            }
+
+            const previousPrincipalEmail = orgRes[0].principal_email
+              ? String(orgRes[0].principal_email).trim().toLowerCase()
+              : null;
+
+            const updateOrganizationQuery = `
+              UPDATE organizations
+              SET principal_email = ?
+              WHERE id = ?
+            `;
+
+            dbms.dbquery(
+              updateOrganizationQuery,
+              [normalizedEmail, orgId],
+              (orgUpdateErr, orgUpdateRes) => {
+                if (orgUpdateErr) {
+                  console.error("ASSIGN PRINCIPAL ERROR:", orgUpdateErr);
+                  return res.status(500).json({
+                    success: false,
+                    message: "Failed to assign principal",
+                  });
+                }
+
+                if (!orgUpdateRes || orgUpdateRes.affectedRows === 0) {
+                  return res.status(404).json({
+                    success: false,
+                    message: "Organization not found",
+                  });
+                }
+
+                const updatePrincipalProfileQuery = `
+                  UPDATE profile
+                  SET organization_id = ?
+                  WHERE email = ?
+                `;
+
+                dbms.dbquery(
+                  updatePrincipalProfileQuery,
+                  [orgId, normalizedEmail],
+                  (profileErr, profileRes) => {
+                    if (profileErr) {
+                      console.error("UPDATE PRINCIPAL PROFILE ORG ERROR:", profileErr);
+                      return res.status(500).json({
+                        success: false,
+                        message: "Principal assigned, but failed to sync profile organization",
+                      });
+                    }
+
+                    if (!profileRes || profileRes.affectedRows === 0) {
+                      return res.status(404).json({
+                        success: false,
+                        message: "Principal profile not found during organization sync",
+                      });
+                    }
+
+                    if (
+                      previousPrincipalEmail &&
+                      previousPrincipalEmail !== normalizedEmail
+                    ) {
+                      const clearOldPrincipalOrgQuery = `
+                        UPDATE profile
+                        SET organization_id = NULL
+                        WHERE email = ?
+                          AND organization_id = ?
+                      `;
+
+                      dbms.dbquery(
+                        clearOldPrincipalOrgQuery,
+                        [previousPrincipalEmail, orgId],
+                        (clearErr) => {
+                          if (clearErr) {
+                            console.error("CLEAR OLD PRINCIPAL ORG ERROR:", clearErr);
+                            return res.status(500).json({
+                              success: false,
+                              message:
+                                "Principal assigned, but failed to clear previous principal organization",
+                            });
+                          }
+
+                          return res.json({
+                            success: true,
+                            message: previousPrincipalEmail
+                                     ? "Principal replaced successfully. Previous principal is now unassigned"
+                                     : "Principal assigned successfully",
+                          });
+                        }
+                      );
+
+                      return;
+                    }
+
+                    createNotification(
+                    {
+                      recipientEmail: normalizedEmail,
+                      actorEmail: req.user.email,
+                      type: "principal_assigned",
+                      title: "You were assigned as a principal",
+                      message: `You have been assigned as the principal $(organizationName).`,
+                      link: "/organization-management",
+                    },
+                    (notificationErr) => {
+                      if (notificationErr) {
+                        console.error("CREATE PRINCIPAL ASSIGNMENT NOTIFICATION ERROR:", notificationErr);
+                      }
+
+                      return res.json({
+                        success: true,
+                        message: "Principal assigned successfully",
+                      });
+                    }
+                  );
+                  }
+                );
+              }
+            );
           });
         }
-
-        if (!response || response.affectedRows === 0) {
-          return res.status(404).json({
-            success: false,
-            message: "Organization not found",
-          });
-        }
-
-        return res.json({
-          success: true,
-          message: "Principal assigned successfully",
-        });
-      });
+      );
     });
   }
 );
@@ -2423,7 +2766,7 @@ app.post( "/api/admin/users",
   authorizeRoles("admin"),
   async (req, res) => {
     try {
-      const { fullname, email, password, role, organization_id } = req.body;
+      const { fullname, email, password, role, organizationId } = req.body;
 
       if (!fullname || !email || !password || !role) {
         return res.status(400).json({
@@ -2480,7 +2823,7 @@ app.post( "/api/admin/users",
                 INSERT INTO profile (email, fullname, role, organization_id)
                 VALUES (?, ?, ?, ?)
                 `,
-                [normalizedEmail, fullname, role, organization_id || null],
+                [normalizedEmail, fullname, role, organizationId || null],
                 (profileErr) => {
                   if (profileErr) {
                     console.error("ADMIN CREATE PROFILE INSERT ERROR:", profileErr);
@@ -2802,12 +3145,14 @@ app.post( "/api/principal/assign-course",
   authenticateToken,
   authorizeRoles("principal", "admin"),
   (req, res) => {
-    const { educatorEmail, courseId } = req.body;
+    const educatorEmail = String(req.body?.educatorEmail || "").trim().toLowerCase();
+    const courseId = Number(req.body?.courseId);
+    const requesterEmail = String(req.user.email).trim().toLowerCase();
 
-    if (!educatorEmail || !courseId) {
+    if (!educatorEmail || !Number.isInteger(courseId) || courseId <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Educator email and course id are required",
+        message: "Educator email and valid course id are required",
       });
     }
 
@@ -2818,7 +3163,7 @@ app.post( "/api/principal/assign-course",
       LIMIT 1
     `;
 
-    dbms.dbquery(orgQuery, [req.user.email], (orgErr, orgRes) => {
+    dbms.dbquery(orgQuery, [requesterEmail], (orgErr, orgRes) => {
       if (orgErr) {
         console.error("ASSIGN COURSE ORG ERROR:", orgErr);
         return res.status(500).json({
@@ -2845,90 +3190,237 @@ app.post( "/api/principal/assign-course",
         LIMIT 1
       `;
 
-      dbms.dbquery(educatorQuery, [educatorEmail, organizationId], (educatorErr, educatorRes) => {
-        if (educatorErr) {
-          console.error("ASSIGN COURSE EDUCATOR CHECK ERROR:", educatorErr);
-          return res.status(500).json({
-            success: false,
-            message: "Failed to validate educator",
-          });
-        }
-
-        if (!educatorRes || educatorRes.length === 0) {
-          return res.status(403).json({
-            success: false,
-            message: "Educator is not in your organization",
-          });
-        }
-
-        const courseQuery = `
-          SELECT id
-          FROM courses
-          WHERE id = ?
-          LIMIT 1
-        `;
-
-        dbms.dbquery(courseQuery, [courseId], (courseErr, courseRes) => {
-          if (courseErr) {
-            console.error("ASSIGN COURSE COURSE CHECK ERROR:", courseErr);
+      dbms.dbquery(
+        educatorQuery,
+        [educatorEmail, organizationId],
+        (educatorErr, educatorRes) => {
+          if (educatorErr) {
+            console.error("ASSIGN COURSE EDUCATOR CHECK ERROR:", educatorErr);
             return res.status(500).json({
               success: false,
-              message: "Failed to validate course",
+              message: "Failed to validate educator",
             });
           }
 
-          if (!courseRes || courseRes.length === 0) {
-            return res.status(404).json({
+          if (!educatorRes || educatorRes.length === 0) {
+            return res.status(403).json({
               success: false,
-              message: "Course not found",
+              message: "Educator is not in your organization",
             });
           }
 
-          const insertQuery = `
-            INSERT INTO educator_course_assignments (
-              educator_email,
-              course_id,
-              assigned_by_email,
-              organization_id,
-              status
-            )
-            VALUES (?, ?, ?, ?, 'assigned', 'principal')
+          const courseQuery = `
+            SELECT id
+            FROM courses
+            WHERE id = ?
+            LIMIT 1
           `;
 
-          dbms.dbquery(
-            insertQuery,
-            [educatorEmail, courseId, req.user.email, organizationId],
-            (insertErr) => {
-              if (insertErr) {
-                console.error("ASSIGN COURSE INSERT ERROR:", insertErr);
+          dbms.dbquery(courseQuery, [courseId], (courseErr, courseRes) => {
+            if (courseErr) {
+              console.error("ASSIGN COURSE COURSE CHECK ERROR:", courseErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to validate course",
+              });
+            }
 
-                if (insertErr.code === "ER_DUP_ENTRY") {
-                  return res.status(400).json({
+            if (!courseRes || courseRes.length === 0) {
+              return res.status(404).json({
+                success: false,
+                message: "Course not found",
+              });
+            }
+
+            const insertQuery = `
+              INSERT INTO educator_course_assignments (
+                educator_email,
+                course_id,
+                assigned_by_email,
+                organization_id,
+                status
+              )
+              VALUES (?, ?, ?, ?, 'assigned')
+            `;
+
+            dbms.dbquery(
+              insertQuery,
+              [educatorEmail, courseId, requesterEmail, organizationId],
+              (insertErr) => {
+                if (insertErr) {
+                  console.error("ASSIGN COURSE INSERT ERROR:", insertErr);
+
+                  if (insertErr.code === "ER_DUP_ENTRY") {
+                    return res.status(400).json({
+                      success: false,
+                      message: "This course is already assigned to the educator",
+                    });
+                  }
+
+                  return res.status(500).json({
                     success: false,
-                    message: "This course is already assigned to the educator",
+                    message: "Failed to assign course",
                   });
                 }
 
-                return res.status(500).json({
-                  success: false,
-                  message: "Failed to assign course",
-                });
-              }
+                createNotification(
+                  {
+                    recipientEmail: educatorEmail,
+                    actorEmail: requesterEmail,
+                    type: "course_assigned",
+                    title: "New course assigned",
+                    message: "A new course has been assigned to you.",
+                    link: `/course-details/${courseId}`,
+                  },
+                  (notificationErr) => {
+                    if (notificationErr) {
+                      console.error("CREATE NOTIFICATION ERROR:", notificationErr);
+                    }
 
-              return res.json({
-                success: true,
-                message: "Course assigned successfully",
-              });
-            }
-          );
-        });
-      });
+                    return res.json({
+                      success: true,
+                      message: "Course assigned successfully",
+                    });
+                  }
+                );
+              }
+            );
+          });
+        }
+      );
     });
   }
 );
 
 //--END Principal Routes---
+//--Notifications---//
 
+app.get("/api/notifications", authenticateToken, (req, res) => {
+  const query = `
+    SELECT
+      id,
+      recipient_email AS recipientEmail,
+      actor_email AS actorEmail,
+      type,
+      title,
+      message,
+      link,
+      is_read AS isRead,
+      created_at AS createdAt,
+      read_at AS readAt
+    FROM notifications
+    WHERE recipient_email = ?
+    ORDER BY created_at DESC
+    LIMIT 50
+  `;
+
+  dbms.dbquery(query, [req.user.email], (err, response) => {
+    if (err) {
+      console.error("GET NOTIFICATIONS ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load notifications",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: response || [],
+    });
+  });
+});
+
+app.get("/api/notifications/unread-count", authenticateToken, (req, res) => {
+  const query = `
+    SELECT COUNT(*) AS unreadCount
+    FROM notifications
+    WHERE recipient_email = ?
+      AND is_read = 0
+  `;
+
+  dbms.dbquery(query, [req.user.email], (err, response) => {
+    if (err) {
+      console.error("GET UNREAD NOTIFICATION COUNT ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load unread notification count",
+      });
+    }
+
+    return res.json({
+      success: true,
+      unreadCount: Number(response?.[0]?.unreadCount || 0),
+    });
+  });
+});
+
+app.post("/api/notifications/:id/read", authenticateToken, (req, res) => {
+  const notificationId = Number(req.params.id);
+
+  if (!Number.isInteger(notificationId) || notificationId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid notification id is required",
+    });
+  }
+
+  const query = `
+    UPDATE notifications
+    SET is_read = 1,
+        read_at = NOW()
+    WHERE id = ?
+      AND recipient_email = ?
+  `;
+
+  dbms.dbquery(query, [notificationId, req.user.email], (err, response) => {
+    if (err) {
+      console.error("MARK NOTIFICATION READ ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to mark notification as read",
+      });
+    }
+
+    if (!response || response.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Notification marked as read",
+    });
+  });
+});
+
+app.post("/api/notifications/read-all", authenticateToken, (req, res) => {
+  const query = `
+    UPDATE notifications
+    SET is_read = 1,
+        read_at = NOW()
+    WHERE recipient_email = ?
+      AND is_read = 0
+  `;
+
+  dbms.dbquery(query, [req.user.email], (err) => {
+    if (err) {
+      console.error("MARK ALL NOTIFICATIONS READ ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to mark notifications as read",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Notifications marked as read",
+    });
+  });
+});
+
+//--END Notifications--//
 
 
 app.post("/api/myinfo", (req, res) => {
