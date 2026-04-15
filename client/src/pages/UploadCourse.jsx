@@ -5,6 +5,8 @@ import API from "../api/api";
 export default function UploadCourse() {
   const thumbnailInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [resourceType, setResourceType] = useState("file");
+  const [resourceUrl, setResourceUrl] = useState("");
 
   const [formData, setFormData] = useState({
     title: "",
@@ -52,6 +54,8 @@ export default function UploadCourse() {
     setError("");
     setMessage("");
     resetFileInputValues();
+    setResourceUrl("");
+    setResourceType("file");
   };
 
   useEffect(() => {
@@ -162,6 +166,16 @@ export default function UploadCourse() {
       return;
     }
 
+    if (resourceType === "file" && !courseFile) {
+      setError("Please upload a course file.");
+      return;
+    }
+
+    if (resourceType === "url" && !resourceUrl.trim()) {
+      setError("Please enter a resource URL.");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -169,13 +183,18 @@ export default function UploadCourse() {
       data.append("title", formData.title.trim());
       data.append("instructor", formData.instructor.trim());
       data.append("description", formData.description.trim());
+      data.append("resourceType", resourceType);
 
       if (thumbnail) {
         data.append("thumbnail", thumbnail);
       }
 
-      if (courseFile) {
+      if (resourceType === "file" && courseFile) {
         data.append("courseFile", courseFile);
+      }
+
+      if (resourceType === "url") {
+        data.append("resourceUrl", resourceUrl.trim());
       }
 
       const response = await API.post("/courses/upload", data);
@@ -264,19 +283,68 @@ export default function UploadCourse() {
               <p>Upload the main course file and an optional thumbnail.</p>
             </div>
 
-            <div
-              className="upload-dropzone"
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <div className="upload-dropzone__icon">☁</div>
-              <h3>Drag and drop your course file</h3>
-              <p>or click here to browse</p>
-              <span className="upload-dropzone__hint">
-                PDF, TXT, MD, image, or video
-              </span>
-            </div>
+              <div className="upload-field">
+                <span>Resource Type</span>
+                <select
+                  value={resourceType}
+                  onChange={(e) => {
+                    const newType = e.target.value;
+                    setResourceType(newType);
+                    
+                    if(newType === "url"){
+                      setCourseFile(null);
+                      setFilePreview("");
+                      setFileObjectUrl("");
+                    }
+                    if (newType === "file"){
+                      setResourceUrl("");
+                    }
+
+                    setError("");
+                  }}
+                  >
+                  <option value="file">Upload File</option>
+                  <option value="url">Online Resource (URL)</option>
+                </select>
+              </div>
+            
+              {resourceType === "url" && (
+              <label className="upload-field">
+                <span>Resource URL</span>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={resourceUrl}
+                  onChange={(e) => setResourceUrl(e.target.value)}
+                />
+              </label>
+              )}
+
+
+              <div
+                  className="upload-dropzone"
+                  onDrop={resourceType === "file" ? handleDrop : undefined}
+                  onDragOver={resourceType === "file" ? handleDragOver : undefined}
+                  onClick={() => 
+                  resourceType === "file" && fileInputRef.current?.click()
+                  }
+                  > 
+                  <button
+                    type="button"
+                    className="upload-secondary-btn"
+                    disabled={resourceType !== "file"}
+                    onClick={() => fileInputRef.current?.click()}
+                    >
+                    Browse Course File
+                  </button>
+
+                  <div className="upload-dropzone__icon">☁</div>
+                 <h3>Drag and drop your course file</h3>
+                 <p>or click here to browse</p>
+                  <span className="upload-dropzone__hint">
+                  PDF, TXT, MD, image, or video
+                  </span>
+              </div>
 
             <input
               ref={fileInputRef}
@@ -331,7 +399,7 @@ export default function UploadCourse() {
             </div>
           </div>
 
-          {(courseFile || thumbnailPreview) && (
+          {(courseFile || thumbnailPreview || (resourceType == "url" && resourceUrl.trim())) && (
             <div className="upload-card">
               <div className="upload-card__header">
                 <h2>Preview</h2>
@@ -355,6 +423,29 @@ export default function UploadCourse() {
                   />
                 </div>
               )}
+
+              {resourceType === "url" && resourceUrl.trim() && (
+                <div className="upload-preview-section">
+                  <h3>URL Preview</h3>
+                  <iframe
+                    src={resourceUrl.trim()}
+                    title="Resource preview"
+                    className="upload-preview-pdf"
+                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                    referrerPolicy="no-referrer"
+                  />
+                  <a
+                    href={resourceUrl.trim()}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="lesson-view__file-link"
+                    style={{ display: "inline-block", marginTop: "8px" }}
+                  >
+                    Open resource in new tab
+                  </a>
+                </div>
+              )}
+
             </div>
           )}
         </div>

@@ -81,6 +81,63 @@ function authorizeRoles(...allowedRoles) {
   };
 }
 
+function normalizeResourceUrl(input) {
+  try {
+    const url = new URL(String(input).trim());
+
+    if (!["http:", "https:"].includes(url.protocol)) {
+      return null;
+    }
+
+    return url.toString();
+  } catch (error) {
+    return null;
+  }
+}
+
+function getEmbedUrl(resourceUrl) {
+  try {
+    const url = new URL(resourceUrl);
+    const host = url.hostname.replace(/^www\./, "");
+
+    //YouTube
+    if (host === "youtube.com" || host === "youtu.be"){
+      let videoId = "";
+
+      if (host === "youtu.be") {
+        videoId = url.pathname.replace("/", "");
+
+      } else {
+        videoId = url.searchParams.get("v") || "";
+      }
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+
+    //Google Drive File
+    if (host === 'drive.google.com') {
+      const match = url.pathname.match(/\/file\/d\/([^/]+)/);
+      if(match?.[1]) {
+        return `https://drive.google.com/file/d/${match[1]}/preview`;
+      }
+    }
+
+    //Vimeo
+    if(host === "vimeo.com") {
+      const videoId = url.pathname.replace("/", "");
+      if (videoId){
+        return `https://player.vimeo.com/video/${videoId}`;
+      }
+    }
+
+    return null;
+  } catch (error){
+    return null;
+  }
+}
+
 function recalculateCourseCounts(courseId, callback) {
   const query = `
     SELECT
@@ -112,6 +169,38 @@ function recalculateCourseCounts(courseId, callback) {
       callback(null, { lessons, quizzes });
     });
   });
+}
+
+function detectUploadedFileType(file) {
+  if (!file) return "";
+
+  const originalName = String(file.originalname || "").toLowerCase();
+  const mimetype = String(file.mimetype || "").toLowerCase();
+
+  if (mimetype) {
+    return mimetype;
+  }
+
+  if (originalName.endsWith(".pdf")) {
+    return "application/pdf";
+  }
+
+  if (
+    originalName.endsWith(".txt") ||
+    originalName.endsWith(".md")
+  ) {
+    return "text/plain";
+  }
+
+  if (originalName.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+
+  if (originalName.endsWith(".doc")) {
+    return "application/msword";
+  }
+
+  return "";
 }
 
 
@@ -445,12 +534,25 @@ app.post( "/api/courses/upload",
       quizzes,
       progress,
       description,
+      resourceType,
+      resourceUrl,
     } = req.body;
 
     if (!title || !instructor) {
       return res.status(400).json({
         success: false,
         message: "Title and instructor are required",
+      });
+    }
+
+    const normalizedResourceType = String(resourceType || "file")
+      .trim()
+      .toLowerCase();
+
+    if (!["file", "url"].includes(normalizedResourceType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Resource type must be either 'file' or 'url'",
       });
     }
 
@@ -461,20 +563,43 @@ app.post( "/api/courses/upload",
       ? `${APP_BASE_URL}/uploads/${thumbnailFile.filename}`
       : "";
 
-    const fileUrl = courseFile
-      ? `${APP_BASE_URL}/uploads/${courseFile.filename}`
-      : "";
+    let fileUrl = null;
+    let fileType = null;
+    let normalizedUrl = null;
+    let embedUrl = null;
 
-   const fileType = courseFile
-  ? (
-      courseFile.mimetype ||
-      (courseFile.originalname.toLowerCase().endsWith(".pdf")
-        ? "application/pdf"
-        : courseFile.originalname.toLowerCase().endsWith(".txt")
-        ? "text/plain"
-        : "")
-    )
-  : "";
+    if (normalizedResourceType === "file") {
+      if (!courseFile) {
+        return res.status(400).json({
+          success: false,
+          message: "A course file is required when resource type is 'file'",
+        });
+      }
+
+      fileUrl = `${APP_BASE_URL}/uploads/${courseFile.filename}`;
+
+      fileType = detectUploadedFileType(courseFileFile);
+    }
+
+    if (normalizedResourceType === "url") {
+      if (courseFile) {
+        return res.status(400).json({
+          success: false,
+          message: "Provide either a course file or a resource URL, not both",
+        });
+      }
+
+      normalizedUrl = normalizeResourceUrl(resourceUrl);
+
+      if (!normalizedUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid http/https resource URL is required",
+        });
+      }
+
+      embedUrl = getEmbedUrl(normalizedUrl);
+    }
 
     const query = `
       INSERT INTO courses (
@@ -487,22 +612,28 @@ app.post( "/api/courses/upload",
         thumbnail,
         file_url,
         file_type,
-        uploaded_by_email
+        uploaded_by_email,
+        resource_type,
+        resource_url,
+        embed_url
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
       title,
       instructor,
-      0,
-      0,
-      0,
+      Number(lessons) || 0,
+      Number(quizzes) || 0,
+      Number(progress) || 0,
       description || "",
       thumbnailUrl,
       fileUrl,
       fileType,
       req.user.email,
+      normalizedResourceType,
+      normalizedUrl,
+      embedUrl,
     ];
 
     dbms.dbquery(query, values, (err, response) => {
@@ -530,13 +661,24 @@ app.post( "/api/courses/upload",
           thumbnail: thumbnailUrl,
           file_url: fileUrl,
           file_type: fileType,
+          resource_type: normalizedResourceType,
+          resource_url: normalizedUrl,
+          embed_url: embedUrl,
         },
       });
     });
-  });
+  }
+);
 
 app.get("/api/courses/:id/modules", (req, res) => {
-  const { id } = req.params;
+  const courseId = Number(req.params.id);
+
+  if (!Number.isInteger(courseId) || courseId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid course id is required",
+    });
+  }
 
   const query = `
     SELECT
@@ -547,18 +689,21 @@ app.get("/api/courses/:id/modules", (req, res) => {
       content,
       file_url,
       file_type,
+      resource_type,
+      resource_url,
+      embed_url,
       position
     FROM course_modules
     WHERE course_id = ?
     ORDER BY position ASC, id ASC
   `;
 
-  dbms.dbquery(query, [id], (err, response) => {
+  dbms.dbquery(query, [courseId], (err, response) => {
     if (err) {
       console.error("GET MODULES ERROR:", err);
       return res.status(500).json({
         success: false,
-        message: "Failed to fetch modules",
+        message: "Failed to fetch course modules",
       });
     }
 
@@ -582,9 +727,13 @@ app.get("/api/courses", (req, res) => {
       thumbnail,
       description,
       file_url,
-      file_type
+      file_type,
+      resource_type,
+      resource_url,
+      embed_url,
+      uploaded_by_email
     FROM courses
-    ORDER BY id DESC;
+    ORDER BY id DESC
   `;
 
   dbms.dbquery(query, (err, response) => {
@@ -844,7 +993,14 @@ app.post( "/api/courses/:courseId/enroll",
 );
 
 app.get("/api/courses/:id", (req, res) => {
-  const { id } = req.params;
+  const courseId = Number(req.params.id);
+
+  if (!Number.isInteger(courseId) || courseId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid course id is required",
+    });
+  }
 
   const courseQuery = `
     SELECT
@@ -857,12 +1013,17 @@ app.get("/api/courses/:id", (req, res) => {
       lessons,
       quizzes,
       file_url,
-      file_type
+      file_type,
+      resource_type,
+      resource_url,
+      embed_url,
+      uploaded_by_email
     FROM courses
     WHERE id = ?
+    LIMIT 1
   `;
 
-  dbms.dbquery(courseQuery, [id], (err, courseResponse) => {
+  dbms.dbquery(courseQuery, [courseId], (err, courseResponse) => {
     if (err) {
       console.error("COURSE DETAILS ERROR:", err);
       return res.status(500).json({
@@ -883,13 +1044,23 @@ app.get("/api/courses/:id", (req, res) => {
     const modulesQuery = `
       SELECT
         id,
-        title
+        course_id,
+        title,
+        type,
+        content,
+        file_url,
+        file_type,
+        resource_type,
+        resource_url,
+        embed_url,
+        position,
+        created_by_email
       FROM course_modules
       WHERE course_id = ?
-      ORDER BY id ASC
+      ORDER BY position ASC, id ASC
     `;
 
-    dbms.dbquery(modulesQuery, [id], (modulesErr, modulesResponse) => {
+    dbms.dbquery(modulesQuery, [courseId], (modulesErr, modulesResponse) => {
       if (modulesErr) {
         console.error("COURSE MODULES ERROR:", modulesErr);
         return res.status(500).json({
@@ -1202,166 +1373,338 @@ app.put( "/api/submissions/:submissionId/grade",
   }
 );
 
-app.post("/api/courses/:id/modules",
-  authenticateToken,
-  authorizeRoles("admin", "trainer"),
-  upload.single("moduleFile"), (req, res) => {
-  const { id } = req.params;
-  const { title, type, content } = req.body;
-
-  if (!title || !type) {
-    return res.status(400).json({
-      success: false,
-      message: "Title and type are required",
-    });
-  }
-
-  const uploadedFile = req.file || null;
-
-  const fileUrl = uploadedFile
-    ? `${APP_BASE_URL}/uploads/${uploadedFile.filename}`
-    : "";
-
-  const fileType = uploadedFile
-    ? (
-        uploadedFile.mimetype ||
-        (uploadedFile.originalname.toLowerCase().endsWith(".pdf")
-          ? "application/pdf"
-          : uploadedFile.originalname.toLowerCase().endsWith(".txt")
-          ? "text/plain"
-          : uploadedFile.originalname.toLowerCase().endsWith(".md")
-          ? "text/plain"
-          : "")
-      )
-    : "";
-
-  const positionQuery = `
-    SELECT COALESCE(MAX(position), 0) + 1 AS nextPosition
-    FROM course_modules
-    WHERE course_id = ?
-  `;
-
-  dbms.dbquery(positionQuery, [id], (posErr, posRes) => {
-    if (posErr) {
-      console.error("POSITION ERROR:", posErr);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to determine module position",
-      });
-    }
-
-    const nextPosition = posRes?.[0]?.nextPosition || 1;
-
-    const insertQuery = `
-      INSERT INTO course_modules (
-        course_id,
-        title,
-        type,
-        content,
-        file_url,
-        file_type,
-        position,
-        created_by_email
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    const values = [
-      id,
-      title,
-      type,
-      content || "",
-      fileUrl,
-      fileType,
-      nextPosition,
-      req.user.email,
-    ];
-
-    dbms.dbquery(insertQuery, values, (insertErr, response) => {
-      if (insertErr) {
-        console.error("ADD MODULE ERROR:", insertErr);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to add module",
-        });
-      }
-
-      recalculateCourseCounts(id, (recalcErr, counts) => {
-      if (recalcErr) {
-      console.error("RECALCULATE COURSE COUNTS ERROR:", recalcErr);
-      return res.status(500).json({
-        success: false,
-        message: "Module added, but failed to update course counts",
-      });
-      }
-
-      return res.json({
-        success: true,
-        message: `${type === "quiz" ? "Quiz" : "Module"} added successfully`,
-        data: {
-          id: response.insertId,
-          course_id: Number(id),
-          title,
-          type,
-          content: content || "",
-          file_url: fileUrl,
-          file_type: fileType,
-          position: nextPosition,
-          },
-          counts,
-        });
-      });
-    });
-
-  });
-}),
-
-app.post("/api/modules/:moduleId/upload",
+app.post( "/api/courses/:id/modules",
   authenticateToken,
   authorizeRoles("admin", "trainer"),
   upload.single("moduleFile"),
   (req, res) => {
-    const { moduleId } = req.params;
-    const { content } = req.body;
+    const courseId = Number(req.params.id);
+    const title = String(req.body?.title || "").trim();
+    const type = String(req.body?.type || "").trim();
+    const content = String(req.body?.content || "");
+    const resourceType = String(req.body?.resourceType || "file")
+      .trim()
+      .toLowerCase();
+    const resourceUrl = String(req.body?.resourceUrl || "").trim();
+
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid course id is required",
+      });
+    }
+
+    if (!title || !type) {
+      return res.status(400).json({
+        success: false,
+        message: "Title and type are required",
+      });
+    }
+
+    if (!["file", "url"].includes(resourceType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Resource type must be either 'file' or 'url'",
+      });
+    }
 
     const uploadedFile = req.file || null;
 
-    const fileUrl = uploadedFile
-      ? `${APP_BASE_URL}/uploads/${uploadedFile.filename}`
-      : "";
+    let fileUrl = null;
+    let fileType = null;
+    let normalizedUrl = null;
+    let embedUrl = null;
 
-    const fileType = uploadedFile ? uploadedFile.mimetype || "" : "";
+    if (resourceType === "file") {
+      if (!uploadedFile) {
+        return res.status(400).json({
+          success: false,
+          message: "A module file is required when resource type is 'file'",
+        });
+      }
 
-    const query = `
-      UPDATE course_modules
-      SET content = ?, file_url = ?, file_type = ?
+      fileUrl = `${APP_BASE_URL}/uploads/${uploadedFile.filename}`;
+
+      fileType = uploadedFile.mimetype
+        ? uploadedFile.mimetype
+        : uploadedFile.originalname.toLowerCase().endsWith(".pdf")
+        ? "application/pdf"
+        : uploadedFile.originalname.toLowerCase().endsWith(".txt") ||
+          uploadedFile.originalname.toLowerCase().endsWith(".md")
+        ? "text/plain"
+        : "";
+    }
+
+    if (resourceType === "url") {
+      if (uploadedFile) {
+        return res.status(400).json({
+          success: false,
+          message: "Provide either a module file or a resource URL, not both",
+        });
+      }
+
+      normalizedUrl = normalizeResourceUrl(resourceUrl);
+
+      if (!normalizedUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid http/https resource URL is required",
+        });
+      }
+
+      embedUrl = getEmbedUrl(normalizedUrl);
+    }
+
+    const courseCheckQuery = `
+      SELECT id
+      FROM courses
       WHERE id = ?
+      LIMIT 1
     `;
 
-    dbms.dbquery(
-      query,
-      [content || "", fileUrl, fileType, moduleId],
-      (err) => {
-        if (err) {
-          console.error("MODULE UPLOAD ERROR:", err);
+    dbms.dbquery(courseCheckQuery, [courseId], (courseErr, courseRes) => {
+      if (courseErr) {
+        console.error("COURSE CHECK ERROR:", courseErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate course",
+        });
+      }
+
+      if (!courseRes || courseRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Course not found",
+        });
+      }
+
+      const positionQuery = `
+        SELECT COALESCE(MAX(position), 0) + 1 AS nextPosition
+        FROM course_modules
+        WHERE course_id = ?
+      `;
+
+      dbms.dbquery(positionQuery, [courseId], (posErr, posRes) => {
+        if (posErr) {
+          console.error("POSITION ERROR:", posErr);
           return res.status(500).json({
             success: false,
-            message: "Failed to upload module file",
+            message: "Failed to determine module position",
           });
         }
 
-        return res.json({
-          success: true,
-          message: "Module updated successfully",
-          data: {
-            id: Number(moduleId),
-            content: content || "",
-            file_url: fileUrl,
-            file_type: fileType,
-          },
+        const nextPosition = posRes?.[0]?.nextPosition || 1;
+
+        const insertQuery = `
+          INSERT INTO course_modules (
+            course_id,
+            title,
+            type,
+            content,
+            file_url,
+            file_type,
+            resource_type,
+            resource_url,
+            embed_url,
+            position,
+            created_by_email
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const values = [
+          courseId,
+          title,
+          type,
+          content,
+          fileUrl,
+          fileType,
+          resourceType,
+          normalizedUrl,
+          embedUrl,
+          nextPosition,
+          req.user.email,
+        ];
+
+        dbms.dbquery(insertQuery, values, (insertErr, response) => {
+          if (insertErr) {
+            console.error("ADD MODULE ERROR:", insertErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to add module",
+            });
+          }
+
+          recalculateCourseCounts(courseId, (recalcErr, counts) => {
+            if (recalcErr) {
+              console.error("RECALCULATE COURSE COUNTS ERROR:", recalcErr);
+              return res.status(500).json({
+                success: false,
+                message: "Module added, but failed to update course counts",
+              });
+            }
+
+            return res.json({
+              success: true,
+              message: `${type === "quiz" ? "Quiz" : "Module"} added successfully`,
+              data: {
+                id: response.insertId,
+                course_id: courseId,
+                title,
+                type,
+                content,
+                file_url: fileUrl,
+                file_type: fileType,
+                resource_type: resourceType,
+                resource_url: normalizedUrl,
+                embed_url: embedUrl,
+                position: nextPosition,
+              },
+              counts,
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+app.post( "/api/modules/:moduleId/upload",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  upload.single("moduleFile"),
+  (req, res) => {
+    const moduleId = Number(req.params.moduleId);
+    const content = String(req.body?.content || "");
+    const resourceType = String(req.body?.resourceType || "file")
+      .trim()
+      .toLowerCase();
+    const resourceUrl = String(req.body?.resourceUrl || "").trim();
+
+    if (!Number.isInteger(moduleId) || moduleId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid module id is required",
+      });
+    }
+
+    if (!["file", "url"].includes(resourceType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Resource type must be either 'file' or 'url'",
+      });
+    }
+
+    const uploadedFile = req.file || null;
+
+    let fileUrl = null;
+    let fileType = null;
+    let normalizedUrl = null;
+    let embedUrl = null;
+
+    if (resourceType === "file") {
+      if (!uploadedFile) {
+        return res.status(400).json({
+          success: false,
+          message: "A module file is required when resource type is 'file'",
         });
       }
-    );
+
+      fileUrl = `${APP_BASE_URL}/uploads/${uploadedFile.filename}`;
+      fileType = detectUploadedFileType(uploadedFile);
+    }
+
+    if (resourceType === "url") {
+      if (uploadedFile) {
+        return res.status(400).json({
+          success: false,
+          message: "Provide either a module file or a resource URL, not both",
+        });
+      }
+
+      normalizedUrl = normalizeResourceUrl(resourceUrl);
+
+      if (!normalizedUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid http/https resource URL is required",
+        });
+      }
+
+      embedUrl = getEmbedUrl(normalizedUrl);
+    }
+
+    const moduleCheckQuery = `
+      SELECT id
+      FROM course_modules
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(moduleCheckQuery, [moduleId], (checkErr, checkRes) => {
+      if (checkErr) {
+        console.error("MODULE CHECK ERROR:", checkErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate module",
+        });
+      }
+
+      if (!checkRes || checkRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Module not found",
+        });
+      }
+
+      const query = `
+        UPDATE course_modules
+        SET
+          content = ?,
+          file_url = ?,
+          file_type = ?,
+          resource_type = ?,
+          resource_url = ?,
+          embed_url = ?
+        WHERE id = ?
+      `;
+
+      dbms.dbquery(
+        query,
+        [
+          content,
+          fileUrl,
+          fileType,
+          resourceType,
+          normalizedUrl,
+          embedUrl,
+          moduleId,
+        ],
+        (err) => {
+          if (err) {
+            console.error("MODULE UPLOAD ERROR:", err);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to update module resource",
+            });
+          }
+
+          return res.json({
+            success: true,
+            message: "Module updated successfully",
+            data: {
+              id: moduleId,
+              content,
+              file_url: fileUrl,
+              file_type: fileType,
+              resource_type: resourceType,
+              resource_url: normalizedUrl,
+              embed_url: embedUrl,
+            },
+          });
+        }
+      );
+    });
   }
 );
 
@@ -3422,6 +3765,275 @@ app.post("/api/notifications/read-all", authenticateToken, (req, res) => {
 
 //--END Notifications--//
 
+//-- Deletions --//
+
+app.delete( "/api/courses/:id",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const courseId = Number(req.params.id);
+    const requesterEmail = String(req.user.email).trim().toLowerCase();
+    const requesterRole = String(req.user.role || "").trim().toLowerCase();
+
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid course id is required",
+      });
+    }
+
+    const courseQuery = `
+      SELECT id, uploaded_by_email
+      FROM courses
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(courseQuery, [courseId], (courseErr, courseRes) => {
+      if (courseErr) {
+        console.error("DELETE COURSE CHECK ERROR:", courseErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate course",
+        });
+      }
+
+      if (!courseRes || courseRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Course not found",
+        });
+      }
+
+      const course = courseRes[0];
+      const ownerEmail = course.uploaded_by_email
+        ? String(course.uploaded_by_email).trim().toLowerCase()
+        : "";
+
+      const isAdmin = requesterRole === "admin";
+      const isOwner = ownerEmail === requesterEmail;
+
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only delete courses you uploaded",
+        });
+      }
+
+      const getModuleIdsQuery = `
+        SELECT id
+        FROM course_modules
+        WHERE course_id = ?
+      `;
+
+      dbms.dbquery(getModuleIdsQuery, [courseId], (moduleErr, moduleRes) => {
+        if (moduleErr) {
+          console.error("DELETE COURSE MODULE LOOKUP ERROR:", moduleErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to load course modules",
+          });
+        }
+
+        const moduleIds = (moduleRes || []).map((row) => Number(row.id)).filter(Boolean);
+
+        const deleteAssignmentsQuery = `
+          DELETE FROM educator_course_assignments
+          WHERE course_id = ?
+        `;
+
+        dbms.dbquery(deleteAssignmentsQuery, [courseId], (assignErr) => {
+          if (assignErr) {
+            console.error("DELETE COURSE ASSIGNMENTS ERROR:", assignErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to delete course assignments",
+            });
+          }
+
+          const deleteSubmissionsForModules = (done) => {
+            if (moduleIds.length === 0) {
+              return done();
+            }
+
+            const placeholders = moduleIds.map(() => "?").join(", ");
+            const deleteSubmissionsQuery = `
+              DELETE FROM quiz_submissions
+              WHERE module_id IN (${placeholders})
+            `;
+
+            dbms.dbquery(deleteSubmissionsQuery, moduleIds, (subErr) => {
+              if (subErr) {
+                console.error("DELETE COURSE QUIZ SUBMISSIONS ERROR:", subErr);
+                return res.status(500).json({
+                  success: false,
+                  message: "Failed to delete course submissions",
+                });
+              }
+
+              return done();
+            });
+          };
+
+          deleteSubmissionsForModules(() => {
+            const deleteModulesQuery = `
+              DELETE FROM course_modules
+              WHERE course_id = ?
+            `;
+
+            dbms.dbquery(deleteModulesQuery, [courseId], (modulesDeleteErr) => {
+              if (modulesDeleteErr) {
+                console.error("DELETE COURSE MODULES ERROR:", modulesDeleteErr);
+                return res.status(500).json({
+                  success: false,
+                  message: "Failed to delete course modules",
+                });
+              }
+
+              const deleteCourseQuery = `
+                DELETE FROM courses
+                WHERE id = ?
+              `;
+
+              dbms.dbquery(deleteCourseQuery, [courseId], (deleteErr, deleteRes) => {
+                if (deleteErr) {
+                  console.error("DELETE COURSE ERROR:", deleteErr);
+                  return res.status(500).json({
+                    success: false,
+                    message: "Failed to delete course",
+                  });
+                }
+
+                if (!deleteRes || deleteRes.affectedRows === 0) {
+                  return res.status(404).json({
+                    success: false,
+                    message: "Course not found",
+                  });
+                }
+
+                return res.json({
+                  success: true,
+                  message: "Course deleted successfully",
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+app.delete( "/api/modules/:moduleId",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const moduleId = Number(req.params.moduleId);
+    const requesterEmail = String(req.user.email).trim().toLowerCase();
+    const requesterRole = String(req.user.role || "").trim().toLowerCase();
+
+    if (!Number.isInteger(moduleId) || moduleId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid module id is required",
+      });
+    }
+
+    const moduleQuery = `
+      SELECT id, course_id, type, created_by_email
+      FROM course_modules
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(moduleQuery, [moduleId], (moduleErr, moduleRes) => {
+      if (moduleErr) {
+        console.error("DELETE MODULE CHECK ERROR:", moduleErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate module",
+        });
+      }
+
+      if (!moduleRes || moduleRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Module not found",
+        });
+      }
+
+      const module = moduleRes[0];
+      const ownerEmail = module.created_by_email
+        ? String(module.created_by_email).trim().toLowerCase()
+        : "";
+
+      const isAdmin = requesterRole === "admin";
+      const isOwner = ownerEmail === requesterEmail;
+
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only delete modules or quizzes you created",
+        });
+      }
+
+      const deleteSubmissionsQuery = `
+        DELETE FROM quiz_submissions
+        WHERE module_id = ?
+      `;
+
+      dbms.dbquery(deleteSubmissionsQuery, [moduleId], (subErr) => {
+        if (subErr) {
+          console.error("DELETE MODULE SUBMISSIONS ERROR:", subErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to delete module submissions",
+          });
+        }
+
+        const deleteModuleQuery = `
+          DELETE FROM course_modules
+          WHERE id = ?
+        `;
+
+        dbms.dbquery(deleteModuleQuery, [moduleId], (deleteErr, deleteRes) => {
+          if (deleteErr) {
+            console.error("DELETE MODULE ERROR:", deleteErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to delete module",
+            });
+          }
+
+          if (!deleteRes || deleteRes.affectedRows === 0) {
+            return res.status(404).json({
+              success: false,
+              message: "Module not found",
+            });
+          }
+
+          recalculateCourseCounts(module.course_id, (recalcErr, counts) => {
+            if (recalcErr) {
+              console.error("RECALCULATE COURSE COUNTS ERROR:", recalcErr);
+              return res.status(500).json({
+                success: false,
+                message: "Module deleted, but failed to update course counts",
+              });
+            }
+
+            return res.json({
+              success: true,
+              message: `${module.type === "quiz" ? "Quiz" : "Module"} deleted successfully`,
+              counts,
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+//-- END Deletions --//
 
 app.post("/api/myinfo", (req, res) => {
   res.json({ test: "true" });
