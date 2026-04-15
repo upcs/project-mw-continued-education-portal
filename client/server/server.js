@@ -81,6 +81,63 @@ function authorizeRoles(...allowedRoles) {
   };
 }
 
+function normalizeResourceUrl(input) {
+  try {
+    const url = new URL(String(input).trim());
+
+    if (!["http:", "https:"].includes(url.protocol)) {
+      return null;
+    }
+
+    return url.toString();
+  } catch (error) {
+    return null;
+  }
+}
+
+function getEmbedUrl(resourceUrl) {
+  try {
+    const url = new URL(resourceUrl);
+    const host = url.hostname.replace(/^www\./, "");
+
+    //YouTube
+    if (host === "youtube.com" || host === "youtu.be"){
+      let videoId = "";
+
+      if (host === "youtu.be") {
+        videoId = url.pathname.replace("/", "");
+
+      } else {
+        videoId = url.searchParams.get("v") || "";
+      }
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+
+    //Google Drive File
+    if (host === 'drive.google.com') {
+      const match = url.pathname.match(/\/file\/d\/([^/]+)/);
+      if(match?.[1]) {
+        return `https://drive.google.com/file/d/${match[1]}/preview`;
+      }
+    }
+
+    //Vimeo
+    if(host === "vimeo.com") {
+      const videoId = url.pathname.replace("/", "");
+      if (videoId){
+        return `https://player.vimeo.com/video/${videoId}`;
+      }
+    }
+
+    return null;
+  } catch (error){
+    return null;
+  }
+}
+
 function recalculateCourseCounts(courseId, callback) {
   const query = `
     SELECT
@@ -112,6 +169,38 @@ function recalculateCourseCounts(courseId, callback) {
       callback(null, { lessons, quizzes });
     });
   });
+}
+
+function detectUploadedFileType(file) {
+  if (!file) return "";
+
+  const originalName = String(file.originalname || "").toLowerCase();
+  const mimetype = String(file.mimetype || "").toLowerCase();
+
+  if (mimetype) {
+    return mimetype;
+  }
+
+  if (originalName.endsWith(".pdf")) {
+    return "application/pdf";
+  }
+
+  if (
+    originalName.endsWith(".txt") ||
+    originalName.endsWith(".md")
+  ) {
+    return "text/plain";
+  }
+
+  if (originalName.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+
+  if (originalName.endsWith(".doc")) {
+    return "application/msword";
+  }
+
+  return "";
 }
 
 
@@ -153,6 +242,8 @@ function extractYouTubeId(url = "") {
 }
 
 function getUserWithProfileByEmail(email, callback) {
+
+  const normalizedEmail = String(email).trim().toLocaleLowerCase();
   const query = `
     SELECT
       u.id,
@@ -160,19 +251,50 @@ function getUserWithProfileByEmail(email, callback) {
       u.password,
       COALESCE(p.fullname, '') AS fullname,
       COALESCE(p.role, 'educator') AS role,
-      COALESCE(p.organization, '') AS organization,
+      COALESCE(o.name, '') AS organization,
+      p.organization_id,
       COALESCE(p.photo, '') AS photo,
       COALESCE(p.whatsapp, '') AS whatsapp,
       COALESCE(p.specialization, '') AS specialization
     FROM users u
     LEFT JOIN profile p ON p.email = u.email
+    LEFT JOIN organizations o ON p.organization_id = o.id
     WHERE u.email = ?
     LIMIT 1
   `;
 
-  dbms.dbquery(query, [email], callback);
+  dbms.dbquery(query, [normalizedEmail], callback);
 }
 
+function createNotification({
+  recipientEmail,
+  actorEmail = null,
+  type,
+  title,
+  message,
+  link = null,
+}, callback) {
+  const normalizedRecipient = String(recipientEmail).trim().toLowerCase();
+  const normalizedActor = actorEmail ? String(actorEmail).trim().toLowerCase() : null;
+
+  const query = `
+    INSERT INTO notifications (
+      recipient_email,
+      actor_email,
+      type,
+      title,
+      message,
+      link
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  dbms.dbquery(
+    query,
+    [normalizedRecipient, normalizedActor, type, title, message, link],
+    callback
+  );
+}
 
 
 app.get("/api/health", (req, res) => {
@@ -213,6 +335,7 @@ app.post("/api/auth/login", (req, res) => {
       fullname: user.fullname || "",
       role: user.role || "educator",
       organization: user.organization || "",
+      organization_id: user.organization_id || null,
       photo: user.photo || "",
       whatsapp: user.whatsapp || "",
       specialization: user.specialization || "",
@@ -256,6 +379,7 @@ app.get("/api/auth/me", authenticateToken, (req, res) => {
         fullname: user.fullname || "",
         role: user.role || "educator",
         organization: user.organization || "",
+        organization_id: user.organization_id || null,
         photo: user.photo || "",
         whatsapp: user.whatsapp || "",
         specialization: user.specialization || "",
@@ -410,12 +534,25 @@ app.post( "/api/courses/upload",
       quizzes,
       progress,
       description,
+      resourceType,
+      resourceUrl,
     } = req.body;
 
     if (!title || !instructor) {
       return res.status(400).json({
         success: false,
         message: "Title and instructor are required",
+      });
+    }
+
+    const normalizedResourceType = String(resourceType || "file")
+      .trim()
+      .toLowerCase();
+
+    if (!["file", "url"].includes(normalizedResourceType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Resource type must be either 'file' or 'url'",
       });
     }
 
@@ -426,20 +563,43 @@ app.post( "/api/courses/upload",
       ? `${APP_BASE_URL}/uploads/${thumbnailFile.filename}`
       : "";
 
-    const fileUrl = courseFile
-      ? `${APP_BASE_URL}/uploads/${courseFile.filename}`
-      : "";
+    let fileUrl = null;
+    let fileType = null;
+    let normalizedUrl = null;
+    let embedUrl = null;
 
-   const fileType = courseFile
-  ? (
-      courseFile.mimetype ||
-      (courseFile.originalname.toLowerCase().endsWith(".pdf")
-        ? "application/pdf"
-        : courseFile.originalname.toLowerCase().endsWith(".txt")
-        ? "text/plain"
-        : "")
-    )
-  : "";
+    if (normalizedResourceType === "file") {
+      if (!courseFile) {
+        return res.status(400).json({
+          success: false,
+          message: "A course file is required when resource type is 'file'",
+        });
+      }
+
+      fileUrl = `${APP_BASE_URL}/uploads/${courseFile.filename}`;
+
+      fileType = detectUploadedFileType(courseFileFile);
+    }
+
+    if (normalizedResourceType === "url") {
+      if (courseFile) {
+        return res.status(400).json({
+          success: false,
+          message: "Provide either a course file or a resource URL, not both",
+        });
+      }
+
+      normalizedUrl = normalizeResourceUrl(resourceUrl);
+
+      if (!normalizedUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid http/https resource URL is required",
+        });
+      }
+
+      embedUrl = getEmbedUrl(normalizedUrl);
+    }
 
     const query = `
       INSERT INTO courses (
@@ -452,22 +612,28 @@ app.post( "/api/courses/upload",
         thumbnail,
         file_url,
         file_type,
-        uploaded_by_email
+        uploaded_by_email,
+        resource_type,
+        resource_url,
+        embed_url
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
       title,
       instructor,
-      0,
-      0,
-      0,
+      Number(lessons) || 0,
+      Number(quizzes) || 0,
+      Number(progress) || 0,
       description || "",
       thumbnailUrl,
       fileUrl,
       fileType,
       req.user.email,
+      normalizedResourceType,
+      normalizedUrl,
+      embedUrl,
     ];
 
     dbms.dbquery(query, values, (err, response) => {
@@ -495,13 +661,24 @@ app.post( "/api/courses/upload",
           thumbnail: thumbnailUrl,
           file_url: fileUrl,
           file_type: fileType,
+          resource_type: normalizedResourceType,
+          resource_url: normalizedUrl,
+          embed_url: embedUrl,
         },
       });
     });
-  });
+  }
+);
 
 app.get("/api/courses/:id/modules", (req, res) => {
-  const { id } = req.params;
+  const courseId = Number(req.params.id);
+
+  if (!Number.isInteger(courseId) || courseId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid course id is required",
+    });
+  }
 
   const query = `
     SELECT
@@ -512,18 +689,21 @@ app.get("/api/courses/:id/modules", (req, res) => {
       content,
       file_url,
       file_type,
+      resource_type,
+      resource_url,
+      embed_url,
       position
     FROM course_modules
     WHERE course_id = ?
     ORDER BY position ASC, id ASC
   `;
 
-  dbms.dbquery(query, [id], (err, response) => {
+  dbms.dbquery(query, [courseId], (err, response) => {
     if (err) {
       console.error("GET MODULES ERROR:", err);
       return res.status(500).json({
         success: false,
-        message: "Failed to fetch modules",
+        message: "Failed to fetch course modules",
       });
     }
 
@@ -547,9 +727,13 @@ app.get("/api/courses", (req, res) => {
       thumbnail,
       description,
       file_url,
-      file_type
+      file_type,
+      resource_type,
+      resource_url,
+      embed_url,
+      uploaded_by_email
     FROM courses
-    ORDER BY id DESC;
+    ORDER BY id DESC
   `;
 
   dbms.dbquery(query, (err, response) => {
@@ -809,7 +993,14 @@ app.post( "/api/courses/:courseId/enroll",
 );
 
 app.get("/api/courses/:id", (req, res) => {
-  const { id } = req.params;
+  const courseId = Number(req.params.id);
+
+  if (!Number.isInteger(courseId) || courseId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid course id is required",
+    });
+  }
 
   const courseQuery = `
     SELECT
@@ -822,12 +1013,17 @@ app.get("/api/courses/:id", (req, res) => {
       lessons,
       quizzes,
       file_url,
-      file_type
+      file_type,
+      resource_type,
+      resource_url,
+      embed_url,
+      uploaded_by_email
     FROM courses
     WHERE id = ?
+    LIMIT 1
   `;
 
-  dbms.dbquery(courseQuery, [id], (err, courseResponse) => {
+  dbms.dbquery(courseQuery, [courseId], (err, courseResponse) => {
     if (err) {
       console.error("COURSE DETAILS ERROR:", err);
       return res.status(500).json({
@@ -848,13 +1044,23 @@ app.get("/api/courses/:id", (req, res) => {
     const modulesQuery = `
       SELECT
         id,
-        title
+        course_id,
+        title,
+        type,
+        content,
+        file_url,
+        file_type,
+        resource_type,
+        resource_url,
+        embed_url,
+        position,
+        created_by_email
       FROM course_modules
       WHERE course_id = ?
-      ORDER BY id ASC
+      ORDER BY position ASC, id ASC
     `;
 
-    dbms.dbquery(modulesQuery, [id], (modulesErr, modulesResponse) => {
+    dbms.dbquery(modulesQuery, [courseId], (modulesErr, modulesResponse) => {
       if (modulesErr) {
         console.error("COURSE MODULES ERROR:", modulesErr);
         return res.status(500).json({
@@ -1054,14 +1260,22 @@ app.get("/api/courses/:courseId/submissions",
   }
 );
 
-app.put("/api/submissions/:submissionId/grade",
+app.put( "/api/submissions/:submissionId/grade",
   authenticateToken,
   authorizeRoles("admin", "trainer"),
   (req, res) => {
-    const { submissionId } = req.params;
+    const submissionId = Number(req.params.submissionId);
     const { status, grade, feedback } = req.body;
+    const reviewerEmail = String(req.user.email).trim().toLowerCase();
 
     const allowedStatuses = ["submitted", "approved", "rejected"];
+
+    if (!Number.isInteger(submissionId) || submissionId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid submission id is required",
+      });
+    }
 
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(400).json({
@@ -1070,211 +1284,427 @@ app.put("/api/submissions/:submissionId/grade",
       });
     }
 
-    const query = `
-      UPDATE quiz_submissions
-      SET
-        status = ?,
-        grade = ?,
-        feedback = ?,
-        reviewed_by_email = ?,
-        reviewed_at = NOW()
-      WHERE id = ?
+    const submissionLookupQuery = `
+      SELECT
+        qs.id,
+        qs.user_email,
+        qs.course_id,
+        qs.module_id,
+        cm.title AS moduleTitle,
+        c.title AS courseTitle
+      FROM quiz_submissions qs
+      LEFT JOIN course_modules cm ON qs.module_id = cm.id
+      LEFT JOIN courses c ON qs.course_id = c.id
+      WHERE qs.id = ?
+      LIMIT 1
     `;
 
-    dbms.dbquery(
-      query,
-      [
-        status,
-        grade || "",
-        feedback || "",
-        req.user.email,
-        submissionId,
-      ],
-      (err, response) => {
-        if (err) {
-          console.error("GRADE SUBMISSION ERROR:", err);
-          return res.status(500).json({
-            success: false,
-            message: "Failed to grade submission",
-          });
-        }
-
-        if (!response || response.affectedRows === 0) {
-          return res.status(404).json({
-            success: false,
-            message: "Submission not found",
-          });
-        }
-
-        return res.json({
-          success: true,
-          message: "Submission graded successfully",
+    dbms.dbquery(submissionLookupQuery, [submissionId], (lookupErr, lookupRes) => {
+      if (lookupErr) {
+        console.error("SUBMISSION LOOKUP ERROR:", lookupErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load submission",
         });
       }
-    );
+
+      if (!lookupRes || lookupRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Submission not found",
+        });
+      }
+
+      const submission = lookupRes[0];
+
+      const updateQuery = `
+        UPDATE quiz_submissions
+        SET
+          status = ?,
+          grade = ?,
+          feedback = ?,
+          reviewed_by_email = ?,
+          reviewed_at = NOW()
+        WHERE id = ?
+      `;
+
+      dbms.dbquery(
+        updateQuery,
+        [status, grade || "", feedback || "", reviewerEmail, submissionId],
+        (err, response) => {
+          if (err) {
+            console.error("GRADE SUBMISSION ERROR:", err);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to grade submission",
+            });
+          }
+
+          if (!response || response.affectedRows === 0) {
+            return res.status(404).json({
+              success: false,
+              message: "Submission not found",
+            });
+          }
+
+          createNotification(
+            {
+              recipientEmail: submission.user_email,
+              actorEmail: reviewerEmail,
+              type: "submission_reviewed",
+              title: "Your quiz submission was reviewed",
+              message: `Your submission for "${submission.moduleTitle || "quiz"}" in "${submission.courseTitle || "course"}" was ${status}.`,
+              link: `/my-submissions`,
+            },
+            (notificationErr) => {
+              if (notificationErr) {
+                console.error("CREATE SUBMISSION REVIEW NOTIFICATION ERROR:", notificationErr);
+              }
+
+              return res.json({
+                success: true,
+                message: "Submission graded successfully",
+              });
+            }
+          );
+        }
+      );
+    });
   }
 );
 
-app.post("/api/courses/:id/modules",
-  authenticateToken,
-  authorizeRoles("admin", "trainer"),
-  upload.single("moduleFile"), (req, res) => {
-  const { id } = req.params;
-  const { title, type, content } = req.body;
-
-  if (!title || !type) {
-    return res.status(400).json({
-      success: false,
-      message: "Title and type are required",
-    });
-  }
-
-  const uploadedFile = req.file || null;
-
-  const fileUrl = uploadedFile
-    ? `${APP_BASE_URL}/uploads/${uploadedFile.filename}`
-    : "";
-
-  const fileType = uploadedFile
-    ? (
-        uploadedFile.mimetype ||
-        (uploadedFile.originalname.toLowerCase().endsWith(".pdf")
-          ? "application/pdf"
-          : uploadedFile.originalname.toLowerCase().endsWith(".txt")
-          ? "text/plain"
-          : uploadedFile.originalname.toLowerCase().endsWith(".md")
-          ? "text/plain"
-          : "")
-      )
-    : "";
-
-  const positionQuery = `
-    SELECT COALESCE(MAX(position), 0) + 1 AS nextPosition
-    FROM course_modules
-    WHERE course_id = ?
-  `;
-
-  dbms.dbquery(positionQuery, [id], (posErr, posRes) => {
-    if (posErr) {
-      console.error("POSITION ERROR:", posErr);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to determine module position",
-      });
-    }
-
-    const nextPosition = posRes?.[0]?.nextPosition || 1;
-
-    const insertQuery = `
-      INSERT INTO course_modules (
-        course_id,
-        title,
-        type,
-        content,
-        file_url,
-        file_type,
-        position,
-        created_by_email
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    const values = [
-      id,
-      title,
-      type,
-      content || "",
-      fileUrl,
-      fileType,
-      nextPosition,
-      req.user.email,
-    ];
-
-    dbms.dbquery(insertQuery, values, (insertErr, response) => {
-      if (insertErr) {
-        console.error("ADD MODULE ERROR:", insertErr);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to add module",
-        });
-      }
-
-      recalculateCourseCounts(id, (recalcErr, counts) => {
-      if (recalcErr) {
-      console.error("RECALCULATE COURSE COUNTS ERROR:", recalcErr);
-      return res.status(500).json({
-        success: false,
-        message: "Module added, but failed to update course counts",
-      });
-      }
-
-      return res.json({
-        success: true,
-        message: `${type === "quiz" ? "Quiz" : "Module"} added successfully`,
-        data: {
-          id: response.insertId,
-          course_id: Number(id),
-          title,
-          type,
-          content: content || "",
-          file_url: fileUrl,
-          file_type: fileType,
-          position: nextPosition,
-          },
-          counts,
-        });
-      });
-    });
-
-  });
-}),
-
-app.post("/api/modules/:moduleId/upload",
+app.post( "/api/courses/:id/modules",
   authenticateToken,
   authorizeRoles("admin", "trainer"),
   upload.single("moduleFile"),
   (req, res) => {
-    const { moduleId } = req.params;
-    const { content } = req.body;
+    const courseId = Number(req.params.id);
+    const title = String(req.body?.title || "").trim();
+    const type = String(req.body?.type || "").trim();
+    const content = String(req.body?.content || "");
+    const resourceType = String(req.body?.resourceType || "file")
+      .trim()
+      .toLowerCase();
+    const resourceUrl = String(req.body?.resourceUrl || "").trim();
+
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid course id is required",
+      });
+    }
+
+    if (!title || !type) {
+      return res.status(400).json({
+        success: false,
+        message: "Title and type are required",
+      });
+    }
+
+    if (!["file", "url"].includes(resourceType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Resource type must be either 'file' or 'url'",
+      });
+    }
 
     const uploadedFile = req.file || null;
 
-    const fileUrl = uploadedFile
-      ? `${APP_BASE_URL}/uploads/${uploadedFile.filename}`
-      : "";
+    let fileUrl = null;
+    let fileType = null;
+    let normalizedUrl = null;
+    let embedUrl = null;
 
-    const fileType = uploadedFile ? uploadedFile.mimetype || "" : "";
+    if (resourceType === "file") {
+      if (!uploadedFile) {
+        return res.status(400).json({
+          success: false,
+          message: "A module file is required when resource type is 'file'",
+        });
+      }
 
-    const query = `
-      UPDATE course_modules
-      SET content = ?, file_url = ?, file_type = ?
+      fileUrl = `${APP_BASE_URL}/uploads/${uploadedFile.filename}`;
+
+      fileType = uploadedFile.mimetype
+        ? uploadedFile.mimetype
+        : uploadedFile.originalname.toLowerCase().endsWith(".pdf")
+        ? "application/pdf"
+        : uploadedFile.originalname.toLowerCase().endsWith(".txt") ||
+          uploadedFile.originalname.toLowerCase().endsWith(".md")
+        ? "text/plain"
+        : "";
+    }
+
+    if (resourceType === "url") {
+      if (uploadedFile) {
+        return res.status(400).json({
+          success: false,
+          message: "Provide either a module file or a resource URL, not both",
+        });
+      }
+
+      normalizedUrl = normalizeResourceUrl(resourceUrl);
+
+      if (!normalizedUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid http/https resource URL is required",
+        });
+      }
+
+      embedUrl = getEmbedUrl(normalizedUrl);
+    }
+
+    const courseCheckQuery = `
+      SELECT id
+      FROM courses
       WHERE id = ?
+      LIMIT 1
     `;
 
-    dbms.dbquery(
-      query,
-      [content || "", fileUrl, fileType, moduleId],
-      (err) => {
-        if (err) {
-          console.error("MODULE UPLOAD ERROR:", err);
+    dbms.dbquery(courseCheckQuery, [courseId], (courseErr, courseRes) => {
+      if (courseErr) {
+        console.error("COURSE CHECK ERROR:", courseErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate course",
+        });
+      }
+
+      if (!courseRes || courseRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Course not found",
+        });
+      }
+
+      const positionQuery = `
+        SELECT COALESCE(MAX(position), 0) + 1 AS nextPosition
+        FROM course_modules
+        WHERE course_id = ?
+      `;
+
+      dbms.dbquery(positionQuery, [courseId], (posErr, posRes) => {
+        if (posErr) {
+          console.error("POSITION ERROR:", posErr);
           return res.status(500).json({
             success: false,
-            message: "Failed to upload module file",
+            message: "Failed to determine module position",
           });
         }
 
-        return res.json({
-          success: true,
-          message: "Module updated successfully",
-          data: {
-            id: Number(moduleId),
-            content: content || "",
-            file_url: fileUrl,
-            file_type: fileType,
-          },
+        const nextPosition = posRes?.[0]?.nextPosition || 1;
+
+        const insertQuery = `
+          INSERT INTO course_modules (
+            course_id,
+            title,
+            type,
+            content,
+            file_url,
+            file_type,
+            resource_type,
+            resource_url,
+            embed_url,
+            position,
+            created_by_email
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const values = [
+          courseId,
+          title,
+          type,
+          content,
+          fileUrl,
+          fileType,
+          resourceType,
+          normalizedUrl,
+          embedUrl,
+          nextPosition,
+          req.user.email,
+        ];
+
+        dbms.dbquery(insertQuery, values, (insertErr, response) => {
+          if (insertErr) {
+            console.error("ADD MODULE ERROR:", insertErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to add module",
+            });
+          }
+
+          recalculateCourseCounts(courseId, (recalcErr, counts) => {
+            if (recalcErr) {
+              console.error("RECALCULATE COURSE COUNTS ERROR:", recalcErr);
+              return res.status(500).json({
+                success: false,
+                message: "Module added, but failed to update course counts",
+              });
+            }
+
+            return res.json({
+              success: true,
+              message: `${type === "quiz" ? "Quiz" : "Module"} added successfully`,
+              data: {
+                id: response.insertId,
+                course_id: courseId,
+                title,
+                type,
+                content,
+                file_url: fileUrl,
+                file_type: fileType,
+                resource_type: resourceType,
+                resource_url: normalizedUrl,
+                embed_url: embedUrl,
+                position: nextPosition,
+              },
+              counts,
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+app.post( "/api/modules/:moduleId/upload",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  upload.single("moduleFile"),
+  (req, res) => {
+    const moduleId = Number(req.params.moduleId);
+    const content = String(req.body?.content || "");
+    const resourceType = String(req.body?.resourceType || "file")
+      .trim()
+      .toLowerCase();
+    const resourceUrl = String(req.body?.resourceUrl || "").trim();
+
+    if (!Number.isInteger(moduleId) || moduleId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid module id is required",
+      });
+    }
+
+    if (!["file", "url"].includes(resourceType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Resource type must be either 'file' or 'url'",
+      });
+    }
+
+    const uploadedFile = req.file || null;
+
+    let fileUrl = null;
+    let fileType = null;
+    let normalizedUrl = null;
+    let embedUrl = null;
+
+    if (resourceType === "file") {
+      if (!uploadedFile) {
+        return res.status(400).json({
+          success: false,
+          message: "A module file is required when resource type is 'file'",
         });
       }
-    );
+
+      fileUrl = `${APP_BASE_URL}/uploads/${uploadedFile.filename}`;
+      fileType = detectUploadedFileType(uploadedFile);
+    }
+
+    if (resourceType === "url") {
+      if (uploadedFile) {
+        return res.status(400).json({
+          success: false,
+          message: "Provide either a module file or a resource URL, not both",
+        });
+      }
+
+      normalizedUrl = normalizeResourceUrl(resourceUrl);
+
+      if (!normalizedUrl) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid http/https resource URL is required",
+        });
+      }
+
+      embedUrl = getEmbedUrl(normalizedUrl);
+    }
+
+    const moduleCheckQuery = `
+      SELECT id
+      FROM course_modules
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(moduleCheckQuery, [moduleId], (checkErr, checkRes) => {
+      if (checkErr) {
+        console.error("MODULE CHECK ERROR:", checkErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate module",
+        });
+      }
+
+      if (!checkRes || checkRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Module not found",
+        });
+      }
+
+      const query = `
+        UPDATE course_modules
+        SET
+          content = ?,
+          file_url = ?,
+          file_type = ?,
+          resource_type = ?,
+          resource_url = ?,
+          embed_url = ?
+        WHERE id = ?
+      `;
+
+      dbms.dbquery(
+        query,
+        [
+          content,
+          fileUrl,
+          fileType,
+          resourceType,
+          normalizedUrl,
+          embedUrl,
+          moduleId,
+        ],
+        (err) => {
+          if (err) {
+            console.error("MODULE UPLOAD ERROR:", err);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to update module resource",
+            });
+          }
+
+          return res.json({
+            success: true,
+            message: "Module updated successfully",
+            data: {
+              id: moduleId,
+              content,
+              file_url: fileUrl,
+              file_type: fileType,
+              resource_type: resourceType,
+              resource_url: normalizedUrl,
+              embed_url: embedUrl,
+            },
+          });
+        }
+      );
+    });
   }
 );
 
@@ -1338,7 +1768,7 @@ app.post("/api/modules/:moduleId/submissions",
     const fileType = uploadedFile ? uploadedFile.mimetype || "" : "";
 
     const moduleQuery = `
-      SELECT id, course_id, type
+      SELECT id, course_id, type, title, created_by_email
       FROM course_modules
       WHERE id = ?
       LIMIT 1
@@ -1438,25 +1868,52 @@ app.post("/api/modules/:moduleId/submissions",
                 message: "Failed to submit quiz",
               });
             }
+            const sendSuccessResponse = () => {
+              return res.json({
+                success: true,
+                message: `Quiz submitted successfully (Attempt ${nextAttempt})`,
+                data: {
+                  id: insertRes.insertId,
+                  module_id: module.id,
+                  course_id: module.course_id,
+                  user_email: req.user.email,
+                  answer_text: answerText || "",
+                  file_url: fileUrl,
+                  file_type: fileType,
+                  status: "submitted",
+                  grade: "",
+                  feedback: "",
+                  attempt_number: nextAttempt,
+                  is_latest: 1,
+                },
+              });
+            };
 
-            return res.json({
-              success: true,
-              message: `Quiz submitted successfully (Attempt ${nextAttempt})`,
-              data: {
-                id: insertRes.insertId,
-                module_id: module.id,
-                course_id: module.course_id,
-                user_email: req.user.email,
-                answer_text: answerText || "",
-                file_url: fileUrl,
-                file_type: fileType,
-                status: "submitted",
-                grade: "",
-                feedback: "",
-                attempt_number: nextAttempt,
-                is_latest: 1,
+            const trainerEmail = module.created_by_email
+              ? String(module.created_by_email).trim().toLocaleLowerCase()
+              : null;
+
+            if (!trainerEmail || trainerEmail == req.user.email.toLocaleLowerCase()) {
+              return sendSuccessResponse();
+            }
+
+            createNotification({
+               
+                recipientEmail: trainerEmail,
+                actorEmail: req.user.email,
+                type: "quiz_submitted",
+                title: "New quiz submission received",
+                message: `A learner submitted "${module.title || "a quiz"}".`,
+                link: `/modules/${module.id}/submissions`,
               },
-            });
+              (notificationErr) => {
+                if (notificationErr) {
+                  console.error("CREATE QUIZ SUBMISSION NOTIFICATION ERROR:", notificationErr);
+                }
+
+                return sendSuccessResponse();
+              }
+            );
           });
         });
       });
@@ -1683,16 +2140,19 @@ app.get("/api/dashboard/trainer-stats",
 );
 
 app.get("/api/profile/me", authenticateToken, (req, res) => {
+  
   const query = `
     SELECT
-      COALESCE(photo, '') AS photo,
-      COALESCE(fullname, '') AS fullname,
-      COALESCE(role, 'educator') AS role,
-      email,
-      COALESCE(whatsapp, '') AS whatsapp,
-      COALESCE(organization, '') AS organization,
+      p.email,
+      COALESCE(p.photo, '') AS photo,
+      COALESCE(p.fullname, '') AS fullname,
+      COALESCE(p.role, 'educator') AS role,
+      COALESCE(p.whatsapp, '') AS whatsapp,
+      COALESCE(o.name, '') AS organization,
+      p.organization_id,
       COALESCE(specialization, '') AS specialization
-    FROM profile
+    FROM profile p
+    LEFT JOIN organizations on ON p.organization_id = o.id
     WHERE email = ?
     LIMIT 1
   `;
@@ -1725,7 +2185,6 @@ app.post("/api/profile/update", authenticateToken, (req, res) => {
     photo,
     fullname,
     whatsapp,
-    organization,
     specialization,
   } = req.body;
 
@@ -1735,7 +2194,6 @@ app.post("/api/profile/update", authenticateToken, (req, res) => {
       photo = ?,
       fullname = ?,
       whatsapp = ?,
-      organization = ?,
       specialization = ?
     WHERE email = ?
   `;
@@ -1744,7 +2202,6 @@ app.post("/api/profile/update", authenticateToken, (req, res) => {
     photo || "",
     fullname || "",
     whatsapp || "",
-    organization || "",
     specialization || "",
     req.user.email,
   ];
@@ -1934,34 +2391,105 @@ app.get("/api/discussions/:id", authenticateToken, (req, res) => {
 });
 
 app.post("/api/discussions/:id/replies", authenticateToken, (req, res) => {
-  const { id } = req.params;
-  const { reply } = req.body;
+  const discussionId = Number(req.params.id);
+  const replyText = String(req.body?.reply || "").trim();
+  const authorEmail = String(req.user.email).trim().toLowerCase();
 
-  if (!reply?.trim()) {
+  if (!Number.isInteger(discussionId) || discussionId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid discussion id is required",
+    });
+  }
+
+  if (!replyText) {
     return res.status(400).json({
       success: false,
       message: "Reply is required",
     });
   }
 
-  const query = `
-    INSERT INTO discussion_replies (discussion_id, author_email, reply)
-    VALUES (?, ?, ?)
+  const discussionOwnerQuery = `
+    SELECT author_email
+    FROM discussions
+    WHERE id = ?
+    LIMIT 1
   `;
 
-  dbms.dbquery(query, [id, req.user.email, reply.trim()], (err) => {
-    if (err) {
-      console.error("CREATE DISCUSSION REPLY ERROR:", err);
+  dbms.dbquery(discussionOwnerQuery, [discussionId], (ownerErr, ownerRes) => {
+    if (ownerErr) {
+      console.error("DISCUSSION OWNER LOOKUP ERROR:", ownerErr);
       return res.status(500).json({
         success: false,
-        message: "Failed to post reply",
+        message: "Failed to validate discussion",
       });
     }
 
-    return res.status(201).json({
-      success: true,
-      message: "Reply posted successfully",
-    });
+    if (!ownerRes || ownerRes.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Discussion not found",
+      });
+    }
+
+    const discussionAuthorEmail = ownerRes[0].author_email
+      ? String(ownerRes[0].author_email).trim().toLowerCase()
+      : null;
+
+    const insertReplyQuery = `
+      INSERT INTO discussion_replies (discussion_id, author_email, reply)
+      VALUES (?, ?, ?)
+    `;
+
+    dbms.dbquery(
+      insertReplyQuery,
+      [discussionId, authorEmail, replyText],
+      (insertErr, insertRes) => {
+        if (insertErr) {
+          console.error("CREATE DISCUSSION REPLY ERROR:", insertErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to post reply",
+          });
+        }
+
+        const sendSuccessResponse = () => {
+          return res.status(201).json({
+            success: true,
+            message: "Reply posted successfully",
+            replyId: insertRes?.insertId || null,
+          });
+        };
+
+        if (
+          !discussionAuthorEmail ||
+          discussionAuthorEmail === authorEmail
+        ) {
+          return sendSuccessResponse();
+        }
+
+        createNotification(
+          {
+            recipientEmail: discussionAuthorEmail,
+            actorEmail: authorEmail,
+            type: "discussion_reply",
+            title: "New reply to your discussion",
+            message: "Someone replied to your discussion.",
+            link: `/discussion?id=${discussionId}`,
+          },
+          (notificationErr) => {
+            if (notificationErr) {
+              console.error(
+                "CREATE DISCUSSION REPLY NOTIFICATION ERROR:",
+                notificationErr
+              );
+            }
+
+            return sendSuccessResponse();
+          }
+        );
+      }
+    );
   });
 });
 
@@ -1975,21 +2503,25 @@ app.get("/api/profile/view", authenticateToken, (req, res) => {
     });
   }
 
+  const normalizedEmail = String(email).trim().toLocaleLowerCase();
+
   const query = `
     SELECT
-      email,
-      fullname,
-      role,
-      photo,
-      whatsapp,
-      organization,
-      specialization
-    FROM profile
-    WHERE email = ?
+      p.email,
+      COALESCE(p.fullname, '') AS fullname,
+      COALESCE(p.role, 'educator') AS role,
+      COALESCE(p.photo, '') AS photo,
+      COALESCE(p.whatsapp, '') AS whatsapp,
+      COALESCE(o.name, '') AS organization,
+      p.organization_id,
+      COALESCE(p.specialization, '') AS specialization
+    FROM profile p
+    LEFT JOIN organizations o ON p.organization_id = o.id
+    WHERE p.email = ?
     LIMIT 1
   `;
 
-  dbms.dbquery(query, [email], (err, response) => {
+  dbms.dbquery(query, [normalizedEmail], (err, response) => {
     if (err) {
       console.error("PROFILE VIEW ERROR:", err);
       return res.status(500).json({
@@ -2240,14 +2772,25 @@ app.put( "/api/admin/organizations/:id/principal",
       });
     }
 
+    const orgId = Number(id);
+    const normalizedEmail = String(principalEmail).trim().toLowerCase();
+
+    if (!Number.isInteger(orgId) || orgId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid organization id is required",
+      });
+    }
+
     const principalCheckQuery = `
-      SELECT email, role
-      FROM profile
-      WHERE email = ?
+      SELECT u.email, p.role
+      FROM users u
+      JOIN profile p ON p.email = u.email
+      WHERE u.email = ?
       LIMIT 1
     `;
 
-    dbms.dbquery(principalCheckQuery, [principalEmail], (checkErr, checkRes) => {
+    dbms.dbquery(principalCheckQuery, [normalizedEmail], (checkErr, checkRes) => {
       if (checkErr) {
         console.error("PRINCIPAL CHECK ERROR:", checkErr);
         return res.status(500).json({
@@ -2259,7 +2802,7 @@ app.put( "/api/admin/organizations/:id/principal",
       if (!checkRes || checkRes.length === 0) {
         return res.status(404).json({
           success: false,
-          message: "Principal profile not found",
+          message: "Principal account/profile not found",
         });
       }
 
@@ -2270,33 +2813,176 @@ app.put( "/api/admin/organizations/:id/principal",
         });
       }
 
-      const updateQuery = `
-        UPDATE organizations
-        SET principal_email = ?
-        WHERE id = ?
+      const existingPrincipalOrgQuery = `
+        SELECT id
+        FROM organizations
+        WHERE LOWER(TRIM(principal_email)) = ?
+          AND id <> ?
+        LIMIT 1
       `;
 
-      dbms.dbquery(updateQuery, [principalEmail, id], (err, response) => {
-        if (err) {
-          console.error("ASSIGN PRINCIPAL ERROR:", err);
-          return res.status(500).json({
-            success: false,
-            message: "Failed to assign principal",
+      dbms.dbquery(
+        existingPrincipalOrgQuery,
+        [normalizedEmail, orgId],
+        (existingErr, existingRes) => {
+          if (existingErr) {
+            console.error("EXISTING PRINCIPAL ORG CHECK ERROR:", existingErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to validate principal organization assignment",
+            });
+          }
+
+          if (existingRes && existingRes.length > 0) {
+            return res.status(400).json({
+              success: false,
+              message: "This principal is already assigned to another organization",
+            });
+          }
+
+          const orgCheckQuery = `
+            SELECT id, name, principal_email
+            FROM organizations
+            WHERE id = ?
+            LIMIT 1
+          `;
+
+          
+
+          dbms.dbquery(orgCheckQuery, [orgId], (orgErr, orgRes) => {
+            if (orgErr) {
+              console.error("ORG CHECK ERROR:", orgErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to validate organization",
+              });
+            }
+            const organizationName = orgRes[0].name || "your organization";
+
+            if (!orgRes || orgRes.length === 0) {
+              return res.status(404).json({
+                success: false,
+                message: "Organization not found",
+              });
+            }
+
+            const previousPrincipalEmail = orgRes[0].principal_email
+              ? String(orgRes[0].principal_email).trim().toLowerCase()
+              : null;
+
+            const updateOrganizationQuery = `
+              UPDATE organizations
+              SET principal_email = ?
+              WHERE id = ?
+            `;
+
+            dbms.dbquery(
+              updateOrganizationQuery,
+              [normalizedEmail, orgId],
+              (orgUpdateErr, orgUpdateRes) => {
+                if (orgUpdateErr) {
+                  console.error("ASSIGN PRINCIPAL ERROR:", orgUpdateErr);
+                  return res.status(500).json({
+                    success: false,
+                    message: "Failed to assign principal",
+                  });
+                }
+
+                if (!orgUpdateRes || orgUpdateRes.affectedRows === 0) {
+                  return res.status(404).json({
+                    success: false,
+                    message: "Organization not found",
+                  });
+                }
+
+                const updatePrincipalProfileQuery = `
+                  UPDATE profile
+                  SET organization_id = ?
+                  WHERE email = ?
+                `;
+
+                dbms.dbquery(
+                  updatePrincipalProfileQuery,
+                  [orgId, normalizedEmail],
+                  (profileErr, profileRes) => {
+                    if (profileErr) {
+                      console.error("UPDATE PRINCIPAL PROFILE ORG ERROR:", profileErr);
+                      return res.status(500).json({
+                        success: false,
+                        message: "Principal assigned, but failed to sync profile organization",
+                      });
+                    }
+
+                    if (!profileRes || profileRes.affectedRows === 0) {
+                      return res.status(404).json({
+                        success: false,
+                        message: "Principal profile not found during organization sync",
+                      });
+                    }
+
+                    if (
+                      previousPrincipalEmail &&
+                      previousPrincipalEmail !== normalizedEmail
+                    ) {
+                      const clearOldPrincipalOrgQuery = `
+                        UPDATE profile
+                        SET organization_id = NULL
+                        WHERE email = ?
+                          AND organization_id = ?
+                      `;
+
+                      dbms.dbquery(
+                        clearOldPrincipalOrgQuery,
+                        [previousPrincipalEmail, orgId],
+                        (clearErr) => {
+                          if (clearErr) {
+                            console.error("CLEAR OLD PRINCIPAL ORG ERROR:", clearErr);
+                            return res.status(500).json({
+                              success: false,
+                              message:
+                                "Principal assigned, but failed to clear previous principal organization",
+                            });
+                          }
+
+                          return res.json({
+                            success: true,
+                            message: previousPrincipalEmail
+                                     ? "Principal replaced successfully. Previous principal is now unassigned"
+                                     : "Principal assigned successfully",
+                          });
+                        }
+                      );
+
+                      return;
+                    }
+
+                    createNotification(
+                    {
+                      recipientEmail: normalizedEmail,
+                      actorEmail: req.user.email,
+                      type: "principal_assigned",
+                      title: "You were assigned as a principal",
+                      message: `You have been assigned as the principal $(organizationName).`,
+                      link: "/organization-management",
+                    },
+                    (notificationErr) => {
+                      if (notificationErr) {
+                        console.error("CREATE PRINCIPAL ASSIGNMENT NOTIFICATION ERROR:", notificationErr);
+                      }
+
+                      return res.json({
+                        success: true,
+                        message: "Principal assigned successfully",
+                      });
+                    }
+                  );
+                  }
+                );
+              }
+            );
           });
         }
-
-        if (!response || response.affectedRows === 0) {
-          return res.status(404).json({
-            success: false,
-            message: "Organization not found",
-          });
-        }
-
-        return res.json({
-          success: true,
-          message: "Principal assigned successfully",
-        });
-      });
+      );
     });
   }
 );
@@ -2423,7 +3109,7 @@ app.post( "/api/admin/users",
   authorizeRoles("admin"),
   async (req, res) => {
     try {
-      const { fullname, email, password, role, organization_id } = req.body;
+      const { fullname, email, password, role, organizationId } = req.body;
 
       if (!fullname || !email || !password || !role) {
         return res.status(400).json({
@@ -2480,7 +3166,7 @@ app.post( "/api/admin/users",
                 INSERT INTO profile (email, fullname, role, organization_id)
                 VALUES (?, ?, ?, ?)
                 `,
-                [normalizedEmail, fullname, role, organization_id || null],
+                [normalizedEmail, fullname, role, organizationId || null],
                 (profileErr) => {
                   if (profileErr) {
                     console.error("ADMIN CREATE PROFILE INSERT ERROR:", profileErr);
@@ -2802,12 +3488,14 @@ app.post( "/api/principal/assign-course",
   authenticateToken,
   authorizeRoles("principal", "admin"),
   (req, res) => {
-    const { educatorEmail, courseId } = req.body;
+    const educatorEmail = String(req.body?.educatorEmail || "").trim().toLowerCase();
+    const courseId = Number(req.body?.courseId);
+    const requesterEmail = String(req.user.email).trim().toLowerCase();
 
-    if (!educatorEmail || !courseId) {
+    if (!educatorEmail || !Number.isInteger(courseId) || courseId <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Educator email and course id are required",
+        message: "Educator email and valid course id are required",
       });
     }
 
@@ -2818,7 +3506,7 @@ app.post( "/api/principal/assign-course",
       LIMIT 1
     `;
 
-    dbms.dbquery(orgQuery, [req.user.email], (orgErr, orgRes) => {
+    dbms.dbquery(orgQuery, [requesterEmail], (orgErr, orgRes) => {
       if (orgErr) {
         console.error("ASSIGN COURSE ORG ERROR:", orgErr);
         return res.status(500).json({
@@ -2845,91 +3533,507 @@ app.post( "/api/principal/assign-course",
         LIMIT 1
       `;
 
-      dbms.dbquery(educatorQuery, [educatorEmail, organizationId], (educatorErr, educatorRes) => {
-        if (educatorErr) {
-          console.error("ASSIGN COURSE EDUCATOR CHECK ERROR:", educatorErr);
-          return res.status(500).json({
-            success: false,
-            message: "Failed to validate educator",
-          });
-        }
-
-        if (!educatorRes || educatorRes.length === 0) {
-          return res.status(403).json({
-            success: false,
-            message: "Educator is not in your organization",
-          });
-        }
-
-        const courseQuery = `
-          SELECT id
-          FROM courses
-          WHERE id = ?
-          LIMIT 1
-        `;
-
-        dbms.dbquery(courseQuery, [courseId], (courseErr, courseRes) => {
-          if (courseErr) {
-            console.error("ASSIGN COURSE COURSE CHECK ERROR:", courseErr);
+      dbms.dbquery(
+        educatorQuery,
+        [educatorEmail, organizationId],
+        (educatorErr, educatorRes) => {
+          if (educatorErr) {
+            console.error("ASSIGN COURSE EDUCATOR CHECK ERROR:", educatorErr);
             return res.status(500).json({
               success: false,
-              message: "Failed to validate course",
+              message: "Failed to validate educator",
             });
           }
 
-          if (!courseRes || courseRes.length === 0) {
-            return res.status(404).json({
+          if (!educatorRes || educatorRes.length === 0) {
+            return res.status(403).json({
               success: false,
-              message: "Course not found",
+              message: "Educator is not in your organization",
             });
           }
 
-          const insertQuery = `
-            INSERT INTO educator_course_assignments (
-              educator_email,
-              course_id,
-              assigned_by_email,
-              organization_id,
-              status
-            )
-            VALUES (?, ?, ?, ?, 'assigned', 'principal')
+          const courseQuery = `
+            SELECT id
+            FROM courses
+            WHERE id = ?
+            LIMIT 1
           `;
 
-          dbms.dbquery(
-            insertQuery,
-            [educatorEmail, courseId, req.user.email, organizationId],
-            (insertErr) => {
-              if (insertErr) {
-                console.error("ASSIGN COURSE INSERT ERROR:", insertErr);
+          dbms.dbquery(courseQuery, [courseId], (courseErr, courseRes) => {
+            if (courseErr) {
+              console.error("ASSIGN COURSE COURSE CHECK ERROR:", courseErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to validate course",
+              });
+            }
 
-                if (insertErr.code === "ER_DUP_ENTRY") {
-                  return res.status(400).json({
+            if (!courseRes || courseRes.length === 0) {
+              return res.status(404).json({
+                success: false,
+                message: "Course not found",
+              });
+            }
+
+            const insertQuery = `
+              INSERT INTO educator_course_assignments (
+                educator_email,
+                course_id,
+                assigned_by_email,
+                organization_id,
+                status
+              )
+              VALUES (?, ?, ?, ?, 'assigned')
+            `;
+
+            dbms.dbquery(
+              insertQuery,
+              [educatorEmail, courseId, requesterEmail, organizationId],
+              (insertErr) => {
+                if (insertErr) {
+                  console.error("ASSIGN COURSE INSERT ERROR:", insertErr);
+
+                  if (insertErr.code === "ER_DUP_ENTRY") {
+                    return res.status(400).json({
+                      success: false,
+                      message: "This course is already assigned to the educator",
+                    });
+                  }
+
+                  return res.status(500).json({
                     success: false,
-                    message: "This course is already assigned to the educator",
+                    message: "Failed to assign course",
                   });
                 }
 
+                createNotification(
+                  {
+                    recipientEmail: educatorEmail,
+                    actorEmail: requesterEmail,
+                    type: "course_assigned",
+                    title: "New course assigned",
+                    message: "A new course has been assigned to you.",
+                    link: `/course-details/${courseId}`,
+                  },
+                  (notificationErr) => {
+                    if (notificationErr) {
+                      console.error("CREATE NOTIFICATION ERROR:", notificationErr);
+                    }
+
+                    return res.json({
+                      success: true,
+                      message: "Course assigned successfully",
+                    });
+                  }
+                );
+              }
+            );
+          });
+        }
+      );
+    });
+  }
+);
+
+//--END Principal Routes---
+//--Notifications---//
+
+app.get("/api/notifications", authenticateToken, (req, res) => {
+  const query = `
+    SELECT
+      id,
+      recipient_email AS recipientEmail,
+      actor_email AS actorEmail,
+      type,
+      title,
+      message,
+      link,
+      is_read AS isRead,
+      created_at AS createdAt,
+      read_at AS readAt
+    FROM notifications
+    WHERE recipient_email = ?
+    ORDER BY created_at DESC
+    LIMIT 50
+  `;
+
+  dbms.dbquery(query, [req.user.email], (err, response) => {
+    if (err) {
+      console.error("GET NOTIFICATIONS ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load notifications",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: response || [],
+    });
+  });
+});
+
+app.get("/api/notifications/unread-count", authenticateToken, (req, res) => {
+  const query = `
+    SELECT COUNT(*) AS unreadCount
+    FROM notifications
+    WHERE recipient_email = ?
+      AND is_read = 0
+  `;
+
+  dbms.dbquery(query, [req.user.email], (err, response) => {
+    if (err) {
+      console.error("GET UNREAD NOTIFICATION COUNT ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load unread notification count",
+      });
+    }
+
+    return res.json({
+      success: true,
+      unreadCount: Number(response?.[0]?.unreadCount || 0),
+    });
+  });
+});
+
+app.post("/api/notifications/:id/read", authenticateToken, (req, res) => {
+  const notificationId = Number(req.params.id);
+
+  if (!Number.isInteger(notificationId) || notificationId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid notification id is required",
+    });
+  }
+
+  const query = `
+    UPDATE notifications
+    SET is_read = 1,
+        read_at = NOW()
+    WHERE id = ?
+      AND recipient_email = ?
+  `;
+
+  dbms.dbquery(query, [notificationId, req.user.email], (err, response) => {
+    if (err) {
+      console.error("MARK NOTIFICATION READ ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to mark notification as read",
+      });
+    }
+
+    if (!response || response.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Notification marked as read",
+    });
+  });
+});
+
+app.post("/api/notifications/read-all", authenticateToken, (req, res) => {
+  const query = `
+    UPDATE notifications
+    SET is_read = 1,
+        read_at = NOW()
+    WHERE recipient_email = ?
+      AND is_read = 0
+  `;
+
+  dbms.dbquery(query, [req.user.email], (err) => {
+    if (err) {
+      console.error("MARK ALL NOTIFICATIONS READ ERROR:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to mark notifications as read",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Notifications marked as read",
+    });
+  });
+});
+
+//--END Notifications--//
+
+//-- Deletions --//
+
+app.delete( "/api/courses/:id",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const courseId = Number(req.params.id);
+    const requesterEmail = String(req.user.email).trim().toLowerCase();
+    const requesterRole = String(req.user.role || "").trim().toLowerCase();
+
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid course id is required",
+      });
+    }
+
+    const courseQuery = `
+      SELECT id, uploaded_by_email
+      FROM courses
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(courseQuery, [courseId], (courseErr, courseRes) => {
+      if (courseErr) {
+        console.error("DELETE COURSE CHECK ERROR:", courseErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate course",
+        });
+      }
+
+      if (!courseRes || courseRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Course not found",
+        });
+      }
+
+      const course = courseRes[0];
+      const ownerEmail = course.uploaded_by_email
+        ? String(course.uploaded_by_email).trim().toLowerCase()
+        : "";
+
+      const isAdmin = requesterRole === "admin";
+      const isOwner = ownerEmail === requesterEmail;
+
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only delete courses you uploaded",
+        });
+      }
+
+      const getModuleIdsQuery = `
+        SELECT id
+        FROM course_modules
+        WHERE course_id = ?
+      `;
+
+      dbms.dbquery(getModuleIdsQuery, [courseId], (moduleErr, moduleRes) => {
+        if (moduleErr) {
+          console.error("DELETE COURSE MODULE LOOKUP ERROR:", moduleErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to load course modules",
+          });
+        }
+
+        const moduleIds = (moduleRes || []).map((row) => Number(row.id)).filter(Boolean);
+
+        const deleteAssignmentsQuery = `
+          DELETE FROM educator_course_assignments
+          WHERE course_id = ?
+        `;
+
+        dbms.dbquery(deleteAssignmentsQuery, [courseId], (assignErr) => {
+          if (assignErr) {
+            console.error("DELETE COURSE ASSIGNMENTS ERROR:", assignErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to delete course assignments",
+            });
+          }
+
+          const deleteSubmissionsForModules = (done) => {
+            if (moduleIds.length === 0) {
+              return done();
+            }
+
+            const placeholders = moduleIds.map(() => "?").join(", ");
+            const deleteSubmissionsQuery = `
+              DELETE FROM quiz_submissions
+              WHERE module_id IN (${placeholders})
+            `;
+
+            dbms.dbquery(deleteSubmissionsQuery, moduleIds, (subErr) => {
+              if (subErr) {
+                console.error("DELETE COURSE QUIZ SUBMISSIONS ERROR:", subErr);
                 return res.status(500).json({
                   success: false,
-                  message: "Failed to assign course",
+                  message: "Failed to delete course submissions",
                 });
               }
 
-              return res.json({
-                success: true,
-                message: "Course assigned successfully",
+              return done();
+            });
+          };
+
+          deleteSubmissionsForModules(() => {
+            const deleteModulesQuery = `
+              DELETE FROM course_modules
+              WHERE course_id = ?
+            `;
+
+            dbms.dbquery(deleteModulesQuery, [courseId], (modulesDeleteErr) => {
+              if (modulesDeleteErr) {
+                console.error("DELETE COURSE MODULES ERROR:", modulesDeleteErr);
+                return res.status(500).json({
+                  success: false,
+                  message: "Failed to delete course modules",
+                });
+              }
+
+              const deleteCourseQuery = `
+                DELETE FROM courses
+                WHERE id = ?
+              `;
+
+              dbms.dbquery(deleteCourseQuery, [courseId], (deleteErr, deleteRes) => {
+                if (deleteErr) {
+                  console.error("DELETE COURSE ERROR:", deleteErr);
+                  return res.status(500).json({
+                    success: false,
+                    message: "Failed to delete course",
+                  });
+                }
+
+                if (!deleteRes || deleteRes.affectedRows === 0) {
+                  return res.status(404).json({
+                    success: false,
+                    message: "Course not found",
+                  });
+                }
+
+                return res.json({
+                  success: true,
+                  message: "Course deleted successfully",
+                });
               });
-            }
-          );
+            });
+          });
         });
       });
     });
   }
 );
 
-//--END Principal Routes---
+app.delete( "/api/modules/:moduleId",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const moduleId = Number(req.params.moduleId);
+    const requesterEmail = String(req.user.email).trim().toLowerCase();
+    const requesterRole = String(req.user.role || "").trim().toLowerCase();
 
+    if (!Number.isInteger(moduleId) || moduleId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid module id is required",
+      });
+    }
 
+    const moduleQuery = `
+      SELECT id, course_id, type, created_by_email
+      FROM course_modules
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(moduleQuery, [moduleId], (moduleErr, moduleRes) => {
+      if (moduleErr) {
+        console.error("DELETE MODULE CHECK ERROR:", moduleErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate module",
+        });
+      }
+
+      if (!moduleRes || moduleRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Module not found",
+        });
+      }
+
+      const module = moduleRes[0];
+      const ownerEmail = module.created_by_email
+        ? String(module.created_by_email).trim().toLowerCase()
+        : "";
+
+      const isAdmin = requesterRole === "admin";
+      const isOwner = ownerEmail === requesterEmail;
+
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only delete modules or quizzes you created",
+        });
+      }
+
+      const deleteSubmissionsQuery = `
+        DELETE FROM quiz_submissions
+        WHERE module_id = ?
+      `;
+
+      dbms.dbquery(deleteSubmissionsQuery, [moduleId], (subErr) => {
+        if (subErr) {
+          console.error("DELETE MODULE SUBMISSIONS ERROR:", subErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to delete module submissions",
+          });
+        }
+
+        const deleteModuleQuery = `
+          DELETE FROM course_modules
+          WHERE id = ?
+        `;
+
+        dbms.dbquery(deleteModuleQuery, [moduleId], (deleteErr, deleteRes) => {
+          if (deleteErr) {
+            console.error("DELETE MODULE ERROR:", deleteErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to delete module",
+            });
+          }
+
+          if (!deleteRes || deleteRes.affectedRows === 0) {
+            return res.status(404).json({
+              success: false,
+              message: "Module not found",
+            });
+          }
+
+          recalculateCourseCounts(module.course_id, (recalcErr, counts) => {
+            if (recalcErr) {
+              console.error("RECALCULATE COURSE COUNTS ERROR:", recalcErr);
+              return res.status(500).json({
+                success: false,
+                message: "Module deleted, but failed to update course counts",
+              });
+            }
+
+            return res.json({
+              success: true,
+              message: `${module.type === "quiz" ? "Quiz" : "Module"} deleted successfully`,
+              counts,
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+//-- END Deletions --//
 
 app.post("/api/myinfo", (req, res) => {
   res.json({ test: "true" });

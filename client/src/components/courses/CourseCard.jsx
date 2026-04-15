@@ -15,6 +15,9 @@ export default function CourseCard({
   actionDisabled = false,
   statusLabel = "",
   sourceLabel = "",
+  canDelete = false,
+  deleteLabel = "Delete",
+  onDelete = null,
 }) {
   const navigate = useNavigate();
 
@@ -92,25 +95,43 @@ export default function CourseCard({
           </div>
         )}
 
-        {actionLabel && onAction && (
-          <button
-            type="button"
-            className={`course-card__action ${
-              actionLabel === "Completed"
-              ? "course-card__action--completed"
-              : actionLabel === "Enrolled"
-              ? "course-card__action--enrolled"
-              : ""
-            }`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAction();
-            }}
-            disabled={actionDisabled}
-          >
-            {actionLabel}
-          </button>
-        )}
+        {(actionLabel && onAction) || (canDelete && onDelete) ? (
+          <div className="course-card__actions">
+            {actionLabel && onAction && (
+              <button
+                type="button"
+                className={`course-card__action ${
+                  actionLabel === "Completed"
+                    ? "course-card__action--completed"
+                    : actionLabel === "Enrolled"
+                    ? "course-card__action--enrolled"
+                    : ""
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAction();
+                }}
+                disabled={actionDisabled}
+              >
+                {actionLabel}
+              </button>
+            )}
+
+            {canDelete && onDelete && (
+              <button
+                type="button"
+                className="course-card__delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                disabled={deleteLabel === "Deleting..."}
+              >
+                {deleteLabel}
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
     </article>
   );

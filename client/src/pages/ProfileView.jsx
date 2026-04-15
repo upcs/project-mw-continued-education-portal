@@ -224,7 +224,6 @@ export default function ProfileView() {
           photo: profile.photo,
           fullname: profile.fullname,
           whatsapp: profile.whatsapp,
-          organization: profile.organization,
           specialization: profile.specialization,
         });
       
@@ -490,10 +489,9 @@ export default function ProfileView() {
                   type="text"
                   name="organization"
                   value={profile.organization}
-                  onChange={handleChange}
                   className="profile-field__input"
-                  placeholder="Enter organization"
-                  disabled={!isEditing || !canEdit}
+                  disabled
+                  readOnly
                 />
               </label>
 

@@ -82,7 +82,7 @@ function App() {
           <Route
             path="/educator-progress"
             element={
-              <ProtectedRoute allowedRoles={["principal, admin"]}>
+              <ProtectedRoute allowedRoles={["principal", "admin"]}>
                 <EducatorProgressPage />
               </ProtectedRoute>
             }

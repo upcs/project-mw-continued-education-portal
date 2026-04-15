@@ -3,15 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import "../css/course-details.css";
 import API from "../api/api";
 import { useAuth } from "../context/AuthContext";
-import {
-  getModuleSubmissions,
-  getMySubmissions,
-  submitQuiz,
-} from "../api/submissions";
-import {
-  markCourseStarted,
-  checkCourseCompletion,
-} from "../api/courses";
+import { getModuleSubmissions, getMySubmissions, submitQuiz } from "../api/submissions";
+import { markCourseStarted, checkCourseCompletion } from "../api/courses";
+import mammoth from "mammoth";
 
 export default function CourseDetails() {
   const { id } = useParams();
@@ -41,6 +35,23 @@ export default function CourseDetails() {
   const [quizSubmitting, setQuizSubmitting] = useState(false);
   const [quizMessage, setQuizMessage] = useState("");
   const [quizError, setQuizError] = useState("");
+
+  const [newResourceType, setNewResourceType] = useState("file");
+  const [newResourceUrl, setNewResourceUrl] = useState("");
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [deletingCourse, setDeletingCourse] = useState(false);
+  const [deletingModuleId, setDeletingModuleId] = useState(null);
+  const canEditContent = user?.role === "admin" || user?.role === "trainer";
+
+  const canDeleteCourse =
+    user?.role === "admin" ||
+    (user?.role === "trainer" &&
+      course?.uploaded_by_email?.toLowerCase() === user?.email?.toLowerCase());
+
+  const canDeleteModule = (moduleItem) =>
+    user?.role === "admin" ||
+    (user?.role === "trainer" &&
+      moduleItem?.created_by_email?.toLowerCase() === user?.email?.toLowerCase());
 
   const isTrainerOrAdmin =
     user?.role === "admin" || user?.role === "trainer";
@@ -146,6 +157,112 @@ export default function CourseDetails() {
     loadModuleSubmissionsForReview();
   }, [activeModule, isTrainerOrAdmin]);
 
+  function InlineTextFile({ fileUrl }) {
+    const [textContent, setTextContent] = useState("");
+    const [textLoading, setTextLoading] = useState(true);
+    const [textError, setTextError] = useState("");
+
+    useEffect(() => {
+      let isMounted = true;
+
+      const loadText = async () => {
+        try {
+          setTextLoading(true);
+          setTextError("");
+
+          const response = await fetch(fileUrl);
+          const text = await response.text();
+
+          if (isMounted) {
+            setTextContent(text);
+          }
+        } catch (error) {
+          if (isMounted) {
+            setTextError("Failed to load text file.");
+          }
+        } finally {
+          if (isMounted) {
+            setTextLoading(false);
+          }
+        }
+      };
+
+      if (fileUrl) {
+        loadText();
+      }
+
+      return () => {
+        isMounted = false;
+      };
+    }, [fileUrl]);
+
+    if (textLoading) {
+      return <p>Loading text file...</p>;
+    }
+
+    if (textError) {
+      return <p>{textError}</p>;
+    }
+
+    return <pre className="upload-preview-textbox">{textContent}</pre>;
+  }
+
+  function InlineDocxFile({ fileUrl }) {
+    const [htmlContent, setHtmlContent] = useState("");
+    const [docxLoading, setDocxLoading] = useState(true);
+    const [docxError, setDocxError] = useState("");
+
+    useEffect(() => {
+      let isMounted = true;
+
+      const loadDocx = async () => {
+        try {
+          setDocxLoading(true);
+          setDocxError("");
+
+          const response = await fetch(fileUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+
+          if (isMounted) {
+            setHtmlContent(result.value || "");
+          }
+        } catch (error) {
+          if (isMounted) {
+            setDocxError("Failed to load Word document.");
+          }
+        } finally {
+          if (isMounted) {
+            setDocxLoading(false);
+          }
+        }
+      };
+
+      if (fileUrl) {
+        loadDocx();
+      }
+
+      return () => {
+        isMounted = false;
+      };
+    }, [fileUrl]);
+
+    if (docxLoading) {
+      return <p>Loading Word document...</p>;
+    }
+
+    if (docxError) {
+      return <p>{docxError}</p>;
+    }
+
+    return (
+      <div
+        className="lesson-view__text-block"
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
+      />
+    );
+  }
+
   const openAddForm = (type) => {
     setShowAddForm(true);
     setNewItemType(type);
@@ -161,6 +278,8 @@ export default function CourseDetails() {
     setNewItemContent("");
     setNewItemFile(null);
     setAddMessage("");
+    setNewResourceType("file");
+    setNewResourceUrl("");
   };
 
   const handleAddItem = async (e) => {
@@ -169,6 +288,15 @@ export default function CourseDetails() {
 
     if (!newItemTitle.trim()) {
       setAddMessage("Title is required.");
+      return;
+    }
+    if (newResourceType === "file" && !newItemFile) {
+      setAddMessage("Please upload a module file.");
+      return;
+    }
+
+    if (newResourceType === "url" && !newResourceUrl.trim()) {
+      setAddMessage("Please enter a resource URL.");
       return;
     }
 
@@ -180,8 +308,14 @@ export default function CourseDetails() {
       formData.append("type", newItemType);
       formData.append("content", newItemContent);
 
-      if (newItemFile) {
+      formData.append("resourceType", newResourceType);
+
+      if (newResourceType === "file" && newItemFile) {
         formData.append("moduleFile", newItemFile);
+      }
+
+      if (newResourceType === "url") {
+        formData.append("resourceUrl", newResourceUrl.trim());
       }
 
       const { data } = await API.post(`/courses/${id}/modules`, formData, {
@@ -203,6 +337,73 @@ export default function CourseDetails() {
       );
     } finally {
       setAddingItem(false);
+    }
+  };
+
+  const handleDeleteCourse = async () => {
+    if (!course?.id) return;
+
+    const confirmed = window.confirm(
+      `Delete "${course.title}" and all of its modules, quizzes, and submissions? This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingCourse(true);
+      setError("");
+      setAddMessage("Course Deleted Successfully.");
+
+      const { data } = await API.delete(`/courses/${course.id}`);
+
+      if (!data?.success) {
+        throw new Error(data?.message || "Failed to delete course");
+      }
+
+      navigate("/courses");
+    } catch (err) {
+      console.error("DELETE COURSE ERROR:", err);
+      setError(
+        err?.response?.data?.message || err.message || "Failed to delete course."
+      );
+    } finally {
+      setDeletingCourse(false);
+    }
+  };
+
+  const handleDeleteModule = async (moduleItem) => {
+    if (!moduleItem?.id) return;
+
+    const label = moduleItem.type === "quiz" ? "quiz" : "module";
+    const confirmed = window.confirm(
+      `Delete "${moduleItem.title}"? This ${label} and any related submissions will be removed.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingModuleId(moduleItem.id);
+      setAddMessage("");
+      setError("");
+
+      const { data } = await API.delete(`/modules/${moduleItem.id}`);
+
+      if (!data?.success) {
+        throw new Error(data?.message || `Failed to delete ${label}`);
+      }
+
+      if (Number(activeModuleId) === Number(moduleItem.id)) {
+        setActiveModuleId("overview");
+      }
+
+      await loadData();
+    } catch (err) {
+      console.error("DELETE MODULE ERROR:", err);
+      setError(
+        err?.response?.data?.message || err.message || "Failed to delete item."
+      );
+    } finally {
+      setDeletingModuleId(null);
     }
   };
 
@@ -260,6 +461,8 @@ export default function CourseDetails() {
       return <img src={fileUrl} alt={title} className="lesson-view__image" />;
     }
 
+    const isDocx = fileType?.includes("wordprocessingml") || lowerUrl.endsWith(".docx");
+
     if (fileType?.startsWith("video/")) {
       return (
         <video controls className="lesson-view__video">
@@ -273,16 +476,11 @@ export default function CourseDetails() {
     }
 
     if (isText) {
-      return (
-        <a
-          href={fileUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="lesson-view__file-link"
-        >
-          Open text file
-        </a>
-      );
+      return <InlineTextFile fileUrl={fileUrl} />;
+    }
+
+    if (isDocx) {
+      return <InlineDocxFile fileUrl={fileUrl} />;
     }
 
     return (
@@ -296,6 +494,43 @@ export default function CourseDetails() {
       </a>
     );
   };
+
+  const renderResource = (item) => {
+      if (!item) return null;
+
+      if(item.resource_type === "url"){
+        if(item.embed_url){
+          return(
+            <iframe
+              src={item.embed_url}
+              title={item.title}
+              className="lesson-view__pdf"
+              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+
+          );
+        }
+
+        if(item.resource_url){
+          return(
+            <a 
+              href={item.resource_url}
+              target="blank"
+              rel="noreferrer"
+              className="lesson-view__file-link"
+            >
+              Open Resource
+            </a>
+          );
+        }
+        return null;
+      }
+
+      return renderCourseFile(item.file_url, item.file_type, item.title);
+    };
 
   const renderEducatorQuizPanel = () => {
     if (!activeModule || activeModule.type !== "quiz" || !isEducator) return null;
@@ -403,6 +638,7 @@ export default function CourseDetails() {
             </div>
           )}
 
+
           <div className="lesson-view__hero-content">
             <p className="lesson-view__eyebrow">Main Lesson</p>
             <h1>{course.title}</h1>
@@ -410,6 +646,19 @@ export default function CourseDetails() {
               {course.instructor} • {course.lessons ?? 0} lessons •{" "}
               {course.quizzes ?? 0} quizzes
             </p>
+
+            {isEditMode && canDeleteCourse && (
+              <div style={{ marginTop: "12px" }}>
+                <button
+                  type="button"
+                  className="lesson-sidebar__add-btn lesson-sidebar__add-btn--secondary"
+                  onClick={handleDeleteCourse}
+                  disabled={deletingCourse}
+                >
+                  {deletingCourse ? "Deleting Course..." : "Delete Course"}
+                </button>
+              </div>
+            )}
 
             {isEducator && course.assignment_status && (
               <p className="lesson-view__assignmentMeta">
@@ -426,11 +675,11 @@ export default function CourseDetails() {
           </div>
         )}
 
-        {renderCourseFile(course.file_url, course.file_type, course.title)}
+        {renderResource(course)}
 
-        {!course.file_url && (
+        {!course.file_url && !course.resource_url && (
           <div className="lesson-view__emptyState">
-            <h3>No course file yet</h3>
+            <h3>No course resource yet</h3>
             <p>Add modules and quizzes from the sidebar.</p>
           </div>
         )}
@@ -465,6 +714,22 @@ export default function CourseDetails() {
           {activeModule.type === "quiz" && (
             <div className="lesson-view__type-badge">Quiz</div>
           )}
+
+          {isEditMode && canDeleteModule(activeModule) && (
+            <button
+              type="button"
+              className="lesson-sidebar__add-btn lesson-sidebar__add-btn--secondary"
+              onClick={() => handleDeleteModule(activeModule)}
+              disabled={deletingModuleId === activeModule.id}
+              >
+              {deletingModuleId === activeModule.id
+                ? "Deleting..."
+                : activeModule.type === "quiz"
+                ? "Delete Quiz"
+                : "Delete Module"}
+            </button>
+          )}
+
         </div>
 
         {activeModule.content && (
@@ -473,13 +738,9 @@ export default function CourseDetails() {
           </div>
         )}
 
-        {renderCourseFile(
-          activeModule.file_url,
-          activeModule.file_type,
-          activeModule.title
-        )}
+        {renderResource(activeModule)}
 
-        {!activeModule.content && !activeModule.file_url && (
+        {!activeModule.content && !activeModule.file_url && !activeModule.resource_url && (
           <div className="lesson-view__emptyState">
             <h3>No content yet</h3>
             <p>This {activeModule.type} does not have content yet.</p>
@@ -514,6 +775,16 @@ export default function CourseDetails() {
           </button>
 
           <h2 className="lesson-sidebar__courseName">{course?.title}</h2>
+          {canEditContent && (
+            <button
+              type="button"
+              className="lesson-sidebar__add-btn lesson-sidebar__add-btn--secondary"
+              onClick={() => setIsEditMode((prev) => !prev)}
+              style={{ marginTop: "10px" }}
+            >
+              {isEditMode ? "Done" : "Edit"}
+            </button>
+          )}
         </div>
 
         <div className="lesson-sidebar__sectionHead">
@@ -536,22 +807,39 @@ export default function CourseDetails() {
           </button>
 
           {modules.map((item, index) => (
-            <button
+            <div
               key={item.id}
-              className={`lesson-sidebar__item ${
-                activeModuleId === item.id ? "is-active" : ""
-              }`}
-              onClick={() => setActiveModuleId(item.id)}
-              type="button"
+              style={{ display: "flex", alignItems: "center", gap: "8px" }}
             >
-              <span className="lesson-sidebar__item-index">{index + 2}</span>
-              <span className="lesson-sidebar__item-main">
-                <span className="lesson-sidebar__item-title">{item.title}</span>
-                <span className="lesson-sidebar__item-subtitle">
-                  {item.type === "quiz" ? "Quiz" : "Module"}
+              <button
+                className={`lesson-sidebar__item ${
+                  activeModuleId === item.id ? "is-active" : ""
+                }`}
+                onClick={() => setActiveModuleId(item.id)}
+                type="button"
+                style={{ flex: 1 }}
+              >
+                <span className="lesson-sidebar__item-index">{index + 2}</span>
+                <span className="lesson-sidebar__item-main">
+                  <span className="lesson-sidebar__item-title">{item.title}</span>
+                  <span className="lesson-sidebar__item-subtitle">
+                    {item.type === "quiz" ? "Quiz" : "Module"}
+                  </span>
                 </span>
-              </span>
-            </button>
+              </button>
+
+              {isEditMode && canDeleteModule(item) && (
+                <button
+                  type="button"
+                  className="lesson-sidebar__add-btn lesson-sidebar__add-btn--secondary"
+                  onClick={() => handleDeleteModule(item)}
+                  disabled={deletingModuleId === item.id}
+                  style={{ padding: "8px 10px", minWidth: "unset" }}
+                >
+                  {deletingModuleId === item.id ? "..." : "Delete"}
+                </button>
+              )}
+            </div>
           ))}
 
           {modules.length === 0 && (
@@ -559,7 +847,7 @@ export default function CourseDetails() {
           )}
         </div>
 
-        {isTrainerOrAdmin && (
+        {isTrainerOrAdmin && isEditMode && (
           <div className="lesson-sidebar__actions">
             <button
               className="lesson-sidebar__add-btn"
@@ -598,11 +886,44 @@ export default function CourseDetails() {
               onChange={(e) => setNewItemContent(e.target.value)}
             />
 
-            <input
-              type="file"
-              accept=".pdf,.txt,.md,image/*,video/*"
-              onChange={(e) => setNewItemFile(e.target.files?.[0] || null)}
-            />
+            <div className="upload-field">
+              <span>Resource Type</span>
+              <select
+                value={newResourceType}
+                onChange={(e) => {
+                  const type = e.target.value;
+                  setNewResourceType(type);
+
+                  if (type === "url") {
+                    setNewItemFile(null);
+                  }
+
+                  if (type === "file") {
+                    setNewResourceUrl("");
+                  }
+                }}
+              >
+                <option value="file">Upload File</option>
+                <option value="url">Online Resource (URL)</option>
+              </select>
+            </div>
+
+            {newResourceType === "url" && (
+              <input
+                type="url"
+                placeholder="https://..."
+                value={newResourceUrl}
+                onChange={(e) => setNewResourceUrl(e.target.value)}
+              />
+            )}
+
+            {newResourceType === "file" && (
+              <input
+                type="file"
+                accept=".pdf,.txt,.md,image/*,video/*"
+                onChange={(e) => setNewItemFile(e.target.files?.[0] || null)}
+              />
+            )}
 
             {addMessage && (
               <p className="lesson-sidebar__add-message">{addMessage}</p>
