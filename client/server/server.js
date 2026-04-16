@@ -2758,22 +2758,15 @@ app.get( "/api/admin/organizations",
   }
 );
 
-app.put( "/api/admin/organizations/:id/principal",
+app.put(
+  "/api/admin/organizations/:id/principal",
   authenticateToken,
   authorizeRoles("admin"),
   (req, res) => {
     const { id } = req.params;
     const { principalEmail } = req.body;
 
-    if (!principalEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Principal email is required",
-      });
-    }
-
     const orgId = Number(id);
-    const normalizedEmail = String(principalEmail).trim().toLowerCase();
 
     if (!Number.isInteger(orgId) || orgId <= 0) {
       return res.status(400).json({
@@ -2782,93 +2775,157 @@ app.put( "/api/admin/organizations/:id/principal",
       });
     }
 
-    const principalCheckQuery = `
-      SELECT u.email, p.role
-      FROM users u
-      JOIN profile p ON p.email = u.email
-      WHERE u.email = ?
+    const normalizedEmail =
+      principalEmail && String(principalEmail).trim()
+        ? String(principalEmail).trim().toLowerCase()
+        : null;
+
+    const orgCheckQuery = `
+      SELECT id, name, principal_email
+      FROM organizations
+      WHERE id = ?
       LIMIT 1
     `;
 
-    dbms.dbquery(principalCheckQuery, [normalizedEmail], (checkErr, checkRes) => {
-      if (checkErr) {
-        console.error("PRINCIPAL CHECK ERROR:", checkErr);
+    dbms.dbquery(orgCheckQuery, [orgId], (orgErr, orgRes) => {
+      if (orgErr) {
+        console.error("ORG CHECK ERROR:", orgErr);
         return res.status(500).json({
           success: false,
-          message: "Failed to validate principal",
+          message: "Failed to validate organization",
         });
       }
 
-      if (!checkRes || checkRes.length === 0) {
+      if (!orgRes || orgRes.length === 0) {
         return res.status(404).json({
           success: false,
-          message: "Principal account/profile not found",
+          message: "Organization not found",
         });
       }
 
-      if (checkRes[0].role !== "principal") {
-        return res.status(400).json({
-          success: false,
-          message: "Selected user is not a principal",
+      const organizationName = orgRes[0].name || "your organization";
+
+      const previousPrincipalEmail = orgRes[0].principal_email
+        ? String(orgRes[0].principal_email).trim().toLowerCase()
+        : null;
+
+      
+      // Remove Principal Flow
+      
+      if (!normalizedEmail) {
+        const clearOrgQuery = `
+          UPDATE organizations
+          SET principal_email = NULL
+          WHERE id = ?
+        `;
+
+        dbms.dbquery(clearOrgQuery, [orgId], (clearErr) => {
+          if (clearErr) {
+            console.error("CLEAR PRINCIPAL ERROR:", clearErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to remove principal",
+            });
+          }
+
+          if (previousPrincipalEmail) {
+            const clearProfileQuery = `
+              UPDATE profile
+              SET organization_id = NULL
+              WHERE email = ?
+                AND organization_id = ?
+            `;
+
+            dbms.dbquery(
+              clearProfileQuery,
+              [previousPrincipalEmail, orgId],
+              (profileErr) => {
+                if (profileErr) {
+                  console.error("CLEAR PROFILE ERROR:", profileErr);
+                  return res.status(500).json({
+                    success: false,
+                    message: "Principal removed, but failed to update profile",
+                  });
+                }
+
+                return res.json({
+                  success: true,
+                  message: "Principal removed successfully",
+                });
+              }
+            );
+
+            return;
+          }
+
+          return res.json({
+            success: true,
+            message: "Principal removed successfully",
+          });
         });
+
+        return;
       }
 
-      const existingPrincipalOrgQuery = `
-        SELECT id
-        FROM organizations
-        WHERE LOWER(TRIM(principal_email)) = ?
-          AND id <> ?
+      // Assign Principal
+
+      const principalCheckQuery = `
+        SELECT u.email, p.role
+        FROM users u
+        JOIN profile p ON p.email = u.email
+        WHERE u.email = ?
         LIMIT 1
       `;
 
-      dbms.dbquery(
-        existingPrincipalOrgQuery,
-        [normalizedEmail, orgId],
-        (existingErr, existingRes) => {
-          if (existingErr) {
-            console.error("EXISTING PRINCIPAL ORG CHECK ERROR:", existingErr);
-            return res.status(500).json({
-              success: false,
-              message: "Failed to validate principal organization assignment",
-            });
-          }
+      dbms.dbquery(principalCheckQuery, [normalizedEmail], (checkErr, checkRes) => {
+        if (checkErr) {
+          console.error("PRINCIPAL CHECK ERROR:", checkErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to validate principal",
+          });
+        }
 
-          if (existingRes && existingRes.length > 0) {
-            return res.status(400).json({
-              success: false,
-              message: "This principal is already assigned to another organization",
-            });
-          }
+        if (!checkRes || checkRes.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Principal not found",
+          });
+        }
 
-          const orgCheckQuery = `
-            SELECT id, name, principal_email
-            FROM organizations
-            WHERE id = ?
-            LIMIT 1
-          `;
+        if (checkRes[0].role !== "principal") {
+          return res.status(400).json({
+            success: false,
+            message: "Selected user is not a principal",
+          });
+        }
 
-          
+        const existingPrincipalOrgQuery = `
+          SELECT id
+          FROM organizations
+          WHERE LOWER(TRIM(principal_email)) = ?
+            AND id <> ?
+          LIMIT 1
+        `;
 
-          dbms.dbquery(orgCheckQuery, [orgId], (orgErr, orgRes) => {
-            if (orgErr) {
-              console.error("ORG CHECK ERROR:", orgErr);
+        dbms.dbquery(
+          existingPrincipalOrgQuery,
+          [normalizedEmail, orgId],
+          (existingErr, existingRes) => {
+            if (existingErr) {
+              console.error("EXISTING PRINCIPAL CHECK ERROR:", existingErr);
               return res.status(500).json({
                 success: false,
-                message: "Failed to validate organization",
+                message: "Failed to validate principal assignment",
               });
             }
-            const organizationName = orgRes[0].name || "your organization";
 
-            if (!orgRes || orgRes.length === 0) {
-              return res.status(404).json({
+            if (existingRes.length > 0) {
+              return res.status(400).json({
                 success: false,
-                message: "Organization not found",
+                message: "Principal already assigned to another organization",
               });
             }
-
-            const previousPrincipalEmail = orgRes[0].principal_email
-              ? String(orgRes[0].principal_email).trim().toLowerCase()
-              : null;
 
             const updateOrganizationQuery = `
               UPDATE organizations
@@ -2879,44 +2936,30 @@ app.put( "/api/admin/organizations/:id/principal",
             dbms.dbquery(
               updateOrganizationQuery,
               [normalizedEmail, orgId],
-              (orgUpdateErr, orgUpdateRes) => {
-                if (orgUpdateErr) {
-                  console.error("ASSIGN PRINCIPAL ERROR:", orgUpdateErr);
+              (updateErr) => {
+                if (updateErr) {
+                  console.error("ASSIGN PRINCIPAL ERROR:", updateErr);
                   return res.status(500).json({
                     success: false,
                     message: "Failed to assign principal",
                   });
                 }
 
-                if (!orgUpdateRes || orgUpdateRes.affectedRows === 0) {
-                  return res.status(404).json({
-                    success: false,
-                    message: "Organization not found",
-                  });
-                }
-
-                const updatePrincipalProfileQuery = `
+                const updateProfileQuery = `
                   UPDATE profile
                   SET organization_id = ?
                   WHERE email = ?
                 `;
 
                 dbms.dbquery(
-                  updatePrincipalProfileQuery,
+                  updateProfileQuery,
                   [orgId, normalizedEmail],
-                  (profileErr, profileRes) => {
+                  (profileErr) => {
                     if (profileErr) {
-                      console.error("UPDATE PRINCIPAL PROFILE ORG ERROR:", profileErr);
+                      console.error("PROFILE UPDATE ERROR:", profileErr);
                       return res.status(500).json({
                         success: false,
-                        message: "Principal assigned, but failed to sync profile organization",
-                      });
-                    }
-
-                    if (!profileRes || profileRes.affectedRows === 0) {
-                      return res.status(404).json({
-                        success: false,
-                        message: "Principal profile not found during organization sync",
+                        message: "Failed to update principal profile",
                       });
                     }
 
@@ -2924,65 +2967,36 @@ app.put( "/api/admin/organizations/:id/principal",
                       previousPrincipalEmail &&
                       previousPrincipalEmail !== normalizedEmail
                     ) {
-                      const clearOldPrincipalOrgQuery = `
-                        UPDATE profile
-                        SET organization_id = NULL
-                        WHERE email = ?
-                          AND organization_id = ?
-                      `;
-
                       dbms.dbquery(
-                        clearOldPrincipalOrgQuery,
-                        [previousPrincipalEmail, orgId],
-                        (clearErr) => {
-                          if (clearErr) {
-                            console.error("CLEAR OLD PRINCIPAL ORG ERROR:", clearErr);
-                            return res.status(500).json({
-                              success: false,
-                              message:
-                                "Principal assigned, but failed to clear previous principal organization",
-                            });
-                          }
-
-                          return res.json({
-                            success: true,
-                            message: previousPrincipalEmail
-                                     ? "Principal replaced successfully. Previous principal is now unassigned"
-                                     : "Principal assigned successfully",
-                          });
-                        }
+                        `UPDATE profile SET organization_id = NULL WHERE email = ?`,
+                        [previousPrincipalEmail],
+                        () => {}
                       );
-
-                      return;
                     }
 
                     createNotification(
-                    {
-                      recipientEmail: normalizedEmail,
-                      actorEmail: req.user.email,
-                      type: "principal_assigned",
-                      title: "You were assigned as a principal",
-                      message: `You have been assigned as the principal $(organizationName).`,
-                      link: "/organization-management",
-                    },
-                    (notificationErr) => {
-                      if (notificationErr) {
-                        console.error("CREATE PRINCIPAL ASSIGNMENT NOTIFICATION ERROR:", notificationErr);
-                      }
+                      {
+                        recipientEmail: normalizedEmail,
+                        actorEmail: req.user.email,
+                        type: "principal_assigned",
+                        title: "You were assigned as a principal",
+                        message: `You are now the principal of ${organizationName}.`,
+                        link: "/organization-management",
+                      },
+                      () => {}
+                    );
 
-                      return res.json({
-                        success: true,
-                        message: "Principal assigned successfully",
-                      });
-                    }
-                  );
+                    return res.json({
+                      success: true,
+                      message: "Principal assigned successfully",
+                    });
                   }
                 );
               }
             );
-          });
-        }
-      );
+          }
+        );
+      });
     });
   }
 );
