@@ -51,12 +51,16 @@ export default function OrganizationsPage() {
   }, []);
 
   const principalUsers = useMemo(() => {
-    return users.filter((user) => user.role === "principal");
+    return users.filter(
+      (user) =>
+        user.role === "principal" &&
+        (!user.organization_id || Number(user.organization_id) === 0)
+    );
   }, [users]);
 
   const eligibleOrganizationUsers = useMemo(() => {
     return users.filter((user) =>
-      ["educator", "trainer", "principal"].includes(user.role)
+      ["educator", "trainer"].includes(user.role)
     );
   }, [users]);
 
@@ -123,14 +127,19 @@ export default function OrganizationsPage() {
       setError("");
       setMessage("");
 
-      await assignPrincipalToOrganization(organizationId, principalEmail);
+      await assignPrincipalToOrganization(organizationId, principalEmail || null);
 
-      setMessage("Principal assigned successfully.");
+      setMessage(
+        principalEmail
+          ? "Principal assigned successfully."
+          : "Principal removed successfully."
+      );
+
       await loadData();
     } catch (err) {
       console.error("ASSIGN PRINCIPAL ERROR:", err);
       setError(
-        err?.response?.data?.message || "Failed to assign principal."
+        err?.response?.data?.message || "Failed to update principal."
       );
     }
   };
@@ -270,6 +279,7 @@ export default function OrganizationsPage() {
                 organization={organization}
                 principalUsers={principalUsers}
                 allUsers={eligibleOrganizationUsers}
+                users={users}
                 onAssignPrincipal={handleAssignPrincipal}
                 onAssignUser={handleAssignUser}
               />
@@ -294,6 +304,7 @@ function OrganizationRow({
   organization,
   principalUsers,
   allUsers,
+  users,
   onAssignPrincipal,
   onAssignUser,
 }) {
@@ -304,13 +315,35 @@ function OrganizationRow({
   const [assigningPrincipal, setAssigningPrincipal] = useState(false);
   const [updatingUserEmail, setUpdatingUserEmail] = useState("");
 
+  useEffect(() => {
+    setPrincipalEmail(organization.principalEmail || "");
+  }, [organization.principalEmail]);
+
   const organizationMembers = allUsers.filter(
     (user) => Number(user.organization_id) === Number(organization.id)
   );
 
   const availableUsers = allUsers.filter(
-    (user) => !user.organization_id || Number(user.organization_id) !== Number(organization.id)
+    (user) => !user.organization_id
   );
+
+  const principalOptions = useMemo(() => {
+    const currentPrincipal = users.find(
+      (user) => user.email === organization.principalEmail
+    );
+
+    const combined = currentPrincipal
+      ? [...principalUsers, currentPrincipal]
+      : [...principalUsers];
+
+    const seen = new Set();
+
+    return combined.filter((user) => {
+      if (!user?.email || seen.has(user.email)) return false;
+      seen.add(user.email);
+      return true;
+    });
+  }, [principalUsers, users, organization.principalEmail]);
 
   const handlePrincipalAssign = async () => {
     if (!principalEmail) return;
@@ -318,6 +351,21 @@ function OrganizationRow({
     try {
       setAssigningPrincipal(true);
       await onAssignPrincipal(organization.id, principalEmail);
+    } finally {
+      setAssigningPrincipal(false);
+    }
+  };
+
+  const handlePrincipalRemove = async () => {
+    const confirmed = window.confirm(
+      `Remove the principal from ${organization.name}?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setAssigningPrincipal(true);
+      await onAssignPrincipal(organization.id, null);
     } finally {
       setAssigningPrincipal(false);
     }
@@ -336,6 +384,12 @@ function OrganizationRow({
   };
 
   const handleRemoveUser = async (email) => {
+    const confirmed = window.confirm(
+      `Remove ${email} from this organization?`
+    );
+
+    if (!confirmed) return;
+
     try {
       setUpdatingUserEmail(email);
       await onAssignUser(email, null);
@@ -364,7 +418,7 @@ function OrganizationRow({
             onChange={(e) => setPrincipalEmail(e.target.value)}
           >
             <option value="">Select principal</option>
-            {principalUsers.map((user) => (
+            {principalOptions.map((user) => (
               <option key={user.email} value={user.email}>
                 {user.fullname || user.email}
               </option>
@@ -375,10 +429,25 @@ function OrganizationRow({
             type="button"
             className="organizations-secondary-btn"
             onClick={handlePrincipalAssign}
-            disabled={!principalEmail || assigningPrincipal}
+            disabled={
+              !principalEmail ||
+              assigningPrincipal ||
+              principalEmail === organization.principalEmail
+            }
           >
             {assigningPrincipal ? "Assigning..." : "Assign Principal"}
           </button>
+
+          {organization.principalEmail && (
+            <button
+              type="button"
+              className="organizations-remove-btn"
+              onClick={handlePrincipalRemove}
+              disabled={assigningPrincipal}
+            >
+              {assigningPrincipal ? "Removing..." : "Remove Principal"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -441,7 +510,7 @@ function OrganizationRow({
               onClick={handleAddUser}
               disabled={!selectedUserEmail || updatingUserEmail === selectedUserEmail}
             >
-              {updatingUserEmail === selectedUserEmail ? "Adding..." : "Add User"}
+              {updatingUserEmail === selectedUserEmail ? "Add User" : "Add User"}
             </button>
           </div>
         </div>
