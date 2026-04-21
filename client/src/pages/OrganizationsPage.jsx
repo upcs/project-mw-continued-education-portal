@@ -434,7 +434,7 @@ function OrganizationRow({
               assigningPrincipal ||
               principalEmail === organization.principalEmail
             }
-          >
+            >
             {assigningPrincipal ? "Assigning..." : "Assign Principal"}
           </button>
 
@@ -444,7 +444,8 @@ function OrganizationRow({
               className="organizations-remove-btn"
               onClick={handlePrincipalRemove}
               disabled={assigningPrincipal}
-            >
+              >
+              
               {assigningPrincipal ? "Removing..." : "Remove Principal"}
             </button>
           )}
@@ -486,6 +487,7 @@ function OrganizationRow({
         </div>
 
         <div className="organization-members__section">
+          
           <div className="organization-members__header">
             <h4>Add User</h4>
             <p>Assign an existing user to this organization.</p>
@@ -495,7 +497,7 @@ function OrganizationRow({
             <select
               value={selectedUserEmail}
               onChange={(e) => setSelectedUserEmail(e.target.value)}
-            >
+             >
               <option value="">Select user</option>
               {availableUsers.map((user) => (
                 <option key={user.email} value={user.email}>
@@ -509,7 +511,8 @@ function OrganizationRow({
               className="organizations-primary-btn"
               onClick={handleAddUser}
               disabled={!selectedUserEmail || updatingUserEmail === selectedUserEmail}
-            >
+              >
+              
               {updatingUserEmail === selectedUserEmail ? "Add User" : "Add User"}
             </button>
           </div>

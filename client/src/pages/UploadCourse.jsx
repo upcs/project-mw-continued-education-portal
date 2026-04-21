@@ -399,7 +399,7 @@ export default function UploadCourse() {
             </div>
           </div>
 
-          {(courseFile || thumbnailPreview || (resourceType == "url" && resourceUrl.trim())) && (
+          {(courseFile || thumbnailPreview || (resourceType === "url" && resourceUrl.trim())) && (
             <div className="upload-card">
               <div className="upload-card__header">
                 <h2>Preview</h2>
