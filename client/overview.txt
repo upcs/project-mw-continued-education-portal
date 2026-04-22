@@ -1,0 +1,23 @@
+this is an overview of the layout of the project.
+
+the project contains two main folders: server and src.
+The server folder holds everything related to server.
+It 
+The src folder holds everything related to the fronted code.
+
+The other files are briefly explained below:
+README: a brief overview of the project and details
+public: a folder containing
+tests: this is the frontend test folder, the backend is in server
+
+
+
+SERVER:
+cert.pem, key.pem: these are our credentials for https
+server.js: this is the main server file
+cs341s26mwed.sql: this is the sqldump that holds the database
+.env: our environment variables
+
+SRC:
+pages: this holds the various pages
+layout: this holds the layout components, it includes:

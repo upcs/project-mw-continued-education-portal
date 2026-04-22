@@ -6,6 +6,7 @@ const dbms = require("./dbms.js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
+const https = require("https");
 const fs = require("fs");
 //import cors from "cors";
 
@@ -14,7 +15,7 @@ const PORT = process.env.PORT || 5000;
 //const PORT = 5000;
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const APP_BASE_URL = `http://cs341s26mwed.campus.up.edu:${PORT}`;
+const APP_BASE_URL = `https://cs341s26mwed.campus.up.edu:${PORT}`;
 //const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
 
 if (!JWT_SECRET){
@@ -4156,10 +4157,21 @@ app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, "../build", "index.html"));
 });
 
-if (require.main === module){
-    app.listen(PORT, "0.0.0.0",  () => {
-        console.log(`Server running on Port: ${PORT}`);
-   });
+if (require.main === module) {
+  const options = {
+    key: fs.readFileSync('./key.pem'),
+    cert: fs.readFileSync('./cert.pem')
+  };
+
+  https.createServer(options, app).listen(PORT, "0.0.0.0", () => {
+    console.log(`HTTPS Server running on Port: ${PORT}`);
+  });
 }
+
+//if (require.main === module){
+//    app.listen(PORT, "0.0.0.0",  () => {
+//        console.log(`Server running on Port: ${PORT}`);
+//   });
+//}
 
 module.exports = app;

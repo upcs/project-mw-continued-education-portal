@@ -75,7 +75,7 @@ export default function WelcomeHero() {
           live sessions, and community in one place.
         </p>
 
-        <button type="button" className="welcome-hero__button">
+        <button type="button" onClick={() => alert("you can learn more by using upelendo")} className="welcome-hero__button">
           LEARN MORE <span>»</span>
         </button>
       </div>
