@@ -11,7 +11,7 @@ import {
 export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState([]);
   const [users, setUsers] = useState([]);
-
+  const [isEditMode, setIsEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -186,6 +186,14 @@ export default function OrganizationsPage() {
             Create organizations, assign principals, and manage organization members.
           </p>
         </div>
+
+        <button
+          type="button"
+          className="organizations-primary-btn"
+          onClick={() => setIsEditMode((prev) => !prev)}
+        >
+          {isEditMode ? "Done" : "Edit"}
+        </button>
       </header>
 
       {message && (
@@ -201,6 +209,7 @@ export default function OrganizationsPage() {
         <StatCard label="Unassigned" value={unassignedOrganizations} />
       </div>
 
+    {isEditMode && (
       <div className="organizations-page__grid">
         <section className="organizations-card">
           <div className="organizations-card__header">
@@ -260,6 +269,7 @@ export default function OrganizationsPage() {
           </div>
         </section>
       </div>
+    )}
 
       <section className="organizations-card">
         <div className="organizations-card__header">
@@ -275,6 +285,7 @@ export default function OrganizationsPage() {
           <div className="organizations-list">
             {filteredOrganizations.map((organization) => (
               <OrganizationRow
+                isEditMode={isEditMode}
                 key={organization.id}
                 organization={organization}
                 principalUsers={principalUsers}
@@ -307,6 +318,7 @@ function OrganizationRow({
   users,
   onAssignPrincipal,
   onAssignUser,
+  isEditMode,
 }) {
   const [principalEmail, setPrincipalEmail] = useState(
     organization.principalEmail || ""
@@ -412,6 +424,7 @@ function OrganizationRow({
           </p>
         </div>
 
+      {isEditMode && (
         <div className="organization-row__controls">
           <select
             value={principalEmail}
@@ -434,22 +447,22 @@ function OrganizationRow({
               assigningPrincipal ||
               principalEmail === organization.principalEmail
             }
-            >
+          >
             {assigningPrincipal ? "Assigning..." : "Assign Principal"}
           </button>
 
-          {organization.principalEmail && (
+          {organization.principalEmail && isEditMode && (
             <button
               type="button"
               className="organizations-remove-btn"
               onClick={handlePrincipalRemove}
               disabled={assigningPrincipal}
-              >
-              
+            >
               {assigningPrincipal ? "Removing..." : "Remove Principal"}
             </button>
           )}
         </div>
+      )}
       </div>
 
       <div className="organization-members">
@@ -472,6 +485,7 @@ function OrganizationRow({
                     </p>
                   </div>
 
+                {isEditMode && (
                   <button
                     type="button"
                     className="organizations-remove-btn"
@@ -480,12 +494,13 @@ function OrganizationRow({
                   >
                     {updatingUserEmail === user.email ? "Removing..." : "Remove"}
                   </button>
+                )}
                 </div>
               ))}
             </div>
           )}
         </div>
-
+      {isEditMode && (
         <div className="organization-members__section">
           
           <div className="organization-members__header">
@@ -517,6 +532,8 @@ function OrganizationRow({
             </button>
           </div>
         </div>
+      )}
+
       </div>
     </div>
   );
