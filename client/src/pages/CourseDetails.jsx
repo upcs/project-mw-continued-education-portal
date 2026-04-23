@@ -607,17 +607,6 @@ export default function CourseDetails() {
             </button>
           )}
 
-          {isEditMode && isTrainerOrAdmin && item.type === "quiz" && (
-            <button
-              type="button"
-              className="lesson-sidebar__add-btn lesson-sidebar__add-btn--secondary"
-              onClick={() => navigate(`/quiz-builder/${item.id}`)}
-              style={{ padding: "8px 10px", minWidth: "unset" }}
-            >
-              Build
-            </button>
-          )}
-
         </div>
 
         {activeModule.content && (
@@ -725,6 +714,17 @@ export default function CourseDetails() {
                   style={{ padding: "8px 10px", minWidth: "unset" }}
                 >
                   {deletingModuleId === item.id ? "..." : "Delete"}
+                </button>
+              )}
+
+              {isEditMode && isTrainerOrAdmin && item.type === "quiz" && (
+                <button
+                  type="button"
+                  className="lesson-sidebar__add-btn lesson-sidebar__add-btn--secondary"
+                  onClick={() => navigate(`/quiz-builder/${item.id}`)}
+                  style={{ padding: "8px 10px", minWidth: "unset" }}
+                >
+                  Build
                 </button>
               )}
             </div>

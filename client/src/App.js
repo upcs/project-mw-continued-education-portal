@@ -19,6 +19,9 @@ import EducatorProgressPage from "./pages/EducatorProgressPage";
 import MySubmissions from "./pages/MySubmissions";
 import CourseSubmissions from "./pages/CourseSubmissions";
 import ReviewsRedirectPage from "./pages/ReviewsRedirectPage";
+import QuizBuilder from "./pages/QuizBuilder";
+import TakeQuiz from "./pages/TakeQuiz";
+import QuizAttemptsReview from "./pages/QuizAttemptsReview";
 
 function App() {
   return (

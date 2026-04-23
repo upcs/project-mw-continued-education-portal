@@ -1,0 +1,36 @@
+.quiz-review-page {
+  padding: 24px;
+  background: #f7f9fc;
+  min-height: 100vh;
+}
+
+.quiz-review-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.quiz-review-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.quiz-review-table th {
+  background: #4f46e5;
+  color: white;
+  text-align: left;
+  padding: 10px;
+}
+
+.quiz-review-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.quiz-review-table tr:hover {
+  background: #f9fafb;
+}
