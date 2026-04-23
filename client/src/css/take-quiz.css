@@ -1,0 +1,83 @@
+.take-quiz-page {
+  padding: 24px;
+  background: #f7f9fc;
+  min-height: 100vh;
+}
+
+.take-quiz-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.take-quiz-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.take-quiz-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.take-quiz-question-card {
+  background: white;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #eee;
+}
+
+.take-quiz-question-card h3 {
+  margin-bottom: 6px;
+}
+
+.take-quiz-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.take-quiz-choices label {
+  background: #f1f5f9;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.take-quiz-choices input {
+  margin-right: 6px;
+}
+
+.take-quiz-form input[type="text"] {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.take-quiz-form button {
+  background: #059669;
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.take-quiz-form button:hover {
+  background: #047857;
+}
+
+.take-quiz-message {
+  color: #16a34a;
+}
+
+.take-quiz-error {
+  color: #dc2626;
+}
