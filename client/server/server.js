@@ -203,7 +203,48 @@ function detectUploadedFileType(file) {
 
   return "";
 }
+////QUIZ BUILDER HELPER FUNCTIONS////
 
+function normalizeQuizText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function recalculateQuizTotalPoints(quizId, callback) {
+  const query = `
+    SELECT COALESCE(SUM(points), 0) AS totalPoints
+    FROM quiz_questions
+    WHERE quiz_id = ?
+  `;
+
+  dbms.dbquery(query, [quizId], (err, res) => {
+    if (err) return callback(err);
+
+    const totalPoints = Number(res?.[0]?.totalPoints || 0);
+
+    dbms.dbquery(
+      `UPDATE quiz_definitions SET total_points = ? WHERE id = ?`,
+      [totalPoints, quizId],
+      (updateErr) => callback(updateErr, totalPoints)
+    );
+  });
+}
+
+function canManageModuleQuiz(moduleRow, reqUser) {
+  const requesterEmail = String(reqUser?.email || "").trim().toLowerCase();
+  const requesterRole = String(reqUser?.role || "").trim().toLowerCase();
+
+  if (requesterRole === "admin") return true;
+
+  return (
+    requesterRole === "trainer" &&
+    String(moduleRow?.created_by_email || "").trim().toLowerCase() === requesterEmail
+  );
+}
+
+///END QUIZ BUILDER///
 
 app.use(
   cors({
@@ -2250,7 +2291,977 @@ app.post("/api/profile/upload-photo", authenticateToken, upload.single("photo"),
     });
   });
 });
+///QUIZ API ROUTES///
 
+app.post( "/api/modules/:moduleId/quiz-builder",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const moduleId = Number(req.params.moduleId);
+    const requesterEmail = String(req.user.email).trim().toLowerCase();
+
+    if (!Number.isInteger(moduleId) || moduleId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid module id is required",
+      });
+    }
+
+    const moduleQuery = `
+      SELECT id, course_id, title, type, created_by_email
+      FROM course_modules
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(moduleQuery, [moduleId], (moduleErr, moduleRes) => {
+      if (moduleErr) {
+        console.error("QUIZ BUILDER MODULE CHECK ERROR:", moduleErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to validate module",
+        });
+      }
+
+      if (!moduleRes || moduleRes.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Module not found",
+        });
+      }
+
+      const moduleRow = moduleRes[0];
+
+      if (moduleRow.type !== "quiz") {
+        return res.status(400).json({
+          success: false,
+          message: "Quiz builder can only be used for quiz modules",
+        });
+      }
+
+      if (!canManageModuleQuiz(moduleRow, req.user)) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only manage quizzes you created",
+        });
+      }
+
+      const existingQuery = `
+        SELECT *
+        FROM quiz_definitions
+        WHERE module_id = ?
+        LIMIT 1
+      `;
+
+      dbms.dbquery(existingQuery, [moduleId], (quizErr, quizRes) => {
+        if (quizErr) {
+          console.error("QUIZ LOOKUP ERROR:", quizErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to load quiz definition",
+          });
+        }
+
+        if (quizRes && quizRes.length > 0) {
+          return res.json({
+            success: true,
+            data: quizRes[0],
+          });
+        }
+
+        const insertQuery = `
+          INSERT INTO quiz_definitions (
+            module_id,
+            title,
+            instructions,
+            pass_percentage,
+            total_points,
+            time_limit_minutes,
+            is_published,
+            created_by_email
+          )
+          VALUES (?, ?, '', 70, 0, NULL, 0, ?)
+        `;
+
+        dbms.dbquery(
+          insertQuery,
+          [moduleId, moduleRow.title || "Untitled Quiz", requesterEmail],
+          (insertErr, insertRes) => {
+            if (insertErr) {
+              console.error("QUIZ CREATE ERROR:", insertErr);
+              return res.status(500).json({
+                success: false,
+                message: "Failed to create quiz definition",
+              });
+            }
+
+            return res.status(201).json({
+              success: true,
+              data: {
+                id: insertRes.insertId,
+                module_id: moduleId,
+                title: moduleRow.title || "Untitled Quiz",
+                instructions: "",
+                pass_percentage: 70,
+                total_points: 0,
+                time_limit_minutes: null,
+                is_published: 0,
+                created_by_email: requesterEmail,
+              },
+            });
+          }
+        );
+      });
+    });
+  }
+);
+
+app.get( "/api/modules/:moduleId/quiz-builder",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const moduleId = Number(req.params.moduleId);
+
+    if (!Number.isInteger(moduleId) || moduleId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid module id is required",
+      });
+    }
+
+    const moduleQuery = `
+      SELECT id, title, type, created_by_email
+      FROM course_modules
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(moduleQuery, [moduleId], (moduleErr, moduleRes) => {
+      if (moduleErr) {
+        return res.status(500).json({ success: false, message: "Failed to load module" });
+      }
+
+      if (!moduleRes || moduleRes.length === 0) {
+        return res.status(404).json({ success: false, message: "Module not found" });
+      }
+
+      const moduleRow = moduleRes[0];
+
+      if (!canManageModuleQuiz(moduleRow, req.user)) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only manage quizzes you created",
+        });
+      }
+
+      const quizQuery = `
+        SELECT *
+        FROM quiz_definitions
+        WHERE module_id = ?
+        LIMIT 1
+      `;
+
+      dbms.dbquery(quizQuery, [moduleId], (quizErr, quizRes) => {
+        if (quizErr) {
+          return res.status(500).json({ success: false, message: "Failed to load quiz" });
+        }
+
+        if (!quizRes || quizRes.length === 0) {
+          return res.status(404).json({ success: false, message: "Quiz definition not found" });
+        }
+
+        const quiz = quizRes[0];
+
+        const questionsQuery = `
+          SELECT id, quiz_id, question_type, prompt, points, sort_order, correct_text
+          FROM quiz_questions
+          WHERE quiz_id = ?
+          ORDER BY sort_order ASC, id ASC
+        `;
+
+        dbms.dbquery(questionsQuery, [quiz.id], (qErr, qRes) => {
+          if (qErr) {
+            return res.status(500).json({ success: false, message: "Failed to load questions" });
+          }
+
+          const questions = qRes || [];
+          if (questions.length === 0) {
+            return res.json({
+              success: true,
+              data: { quiz, questions: [] },
+            });
+          }
+
+          const questionIds = questions.map((q) => q.id);
+          const placeholders = questionIds.map(() => "?").join(", ");
+
+          const choicesQuery = `
+            SELECT id, question_id, choice_text, is_correct, sort_order
+            FROM quiz_question_choices
+            WHERE question_id IN (${placeholders})
+            ORDER BY sort_order ASC, id ASC
+          `;
+
+          dbms.dbquery(choicesQuery, questionIds, (cErr, cRes) => {
+            if (cErr) {
+              return res.status(500).json({ success: false, message: "Failed to load choices" });
+            }
+
+            const choices = cRes || [];
+            const questionsWithChoices = questions.map((question) => ({
+              ...question,
+              choices: choices.filter((choice) => Number(choice.question_id) === Number(question.id)),
+            }));
+
+            return res.json({
+              success: true,
+              data: {
+                quiz,
+                questions: questionsWithChoices,
+              },
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+app.put( "/api/quizzes/:quizId",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const quizId = Number(req.params.quizId);
+    const {
+      title,
+      instructions,
+      pass_percentage,
+      time_limit_minutes,
+      is_published,
+    } = req.body;
+
+    if (!Number.isInteger(quizId) || quizId <= 0) {
+      return res.status(400).json({ success: false, message: "Valid quiz id is required" });
+    }
+
+    const lookupQuery = `
+      SELECT q.id, q.module_id, m.created_by_email
+      FROM quiz_definitions q
+      JOIN course_modules m ON q.module_id = m.id
+      WHERE q.id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(lookupQuery, [quizId], (err, resLookup) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "Failed to validate quiz" });
+      }
+
+      if (!resLookup || resLookup.length === 0) {
+        return res.status(404).json({ success: false, message: "Quiz not found" });
+      }
+
+      if (!canManageModuleQuiz(resLookup[0], req.user)) {
+        return res.status(403).json({ success: false, message: "Not allowed" });
+      }
+
+      const query = `
+        UPDATE quiz_definitions
+        SET
+          title = ?,
+          instructions = ?,
+          pass_percentage = ?,
+          time_limit_minutes = ?,
+          is_published = ?
+        WHERE id = ?
+      `;
+
+      dbms.dbquery(
+        query,
+        [
+          String(title || "").trim(),
+          String(instructions || ""),
+          Number(pass_percentage) || 70,
+          time_limit_minutes ? Number(time_limit_minutes) : null,
+          is_published ? 1 : 0,
+          quizId,
+        ],
+        (updateErr) => {
+          if (updateErr) {
+            return res.status(500).json({ success: false, message: "Failed to update quiz" });
+          }
+
+          return res.json({ success: true, message: "Quiz updated successfully" });
+        }
+      );
+    });
+  }
+);
+
+app.post( "/api/quizzes/:quizId/questions",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const quizId = Number(req.params.quizId);
+    const {
+      question_type,
+      prompt,
+      points,
+      sort_order,
+      correct_text,
+      choices = [],
+    } = req.body;
+
+    if (!Number.isInteger(quizId) || quizId <= 0) {
+      return res.status(400).json({ success: false, message: "Valid quiz id is required" });
+    }
+
+    if (!["multiple_choice", "true_false", "fill_blank"].includes(question_type)) {
+      return res.status(400).json({ success: false, message: "Invalid question type" });
+    }
+
+    if (!String(prompt || "").trim()) {
+      return res.status(400).json({ success: false, message: "Question prompt is required" });
+    }
+
+    const lookupQuery = `
+      SELECT q.id, q.module_id, m.created_by_email
+      FROM quiz_definitions q
+      JOIN course_modules m ON q.module_id = m.id
+      WHERE q.id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(lookupQuery, [quizId], (err, resLookup) => {
+      if (err) return res.status(500).json({ success: false, message: "Failed to validate quiz" });
+      if (!resLookup || resLookup.length === 0) {
+        return res.status(404).json({ success: false, message: "Quiz not found" });
+      }
+      if (!canManageModuleQuiz(resLookup[0], req.user)) {
+        return res.status(403).json({ success: false, message: "Not allowed" });
+      }
+
+      const questionQuery = `
+        INSERT INTO quiz_questions (
+          quiz_id, question_type, prompt, points, sort_order, correct_text
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      dbms.dbquery(
+        questionQuery,
+        [
+          quizId,
+          question_type,
+          String(prompt).trim(),
+          Number(points) || 1,
+          Number(sort_order) || 1,
+          question_type === "fill_blank" ? String(correct_text || "").trim() : null,
+        ],
+        (qErr, qInsert) => {
+          if (qErr) {
+            return res.status(500).json({ success: false, message: "Failed to add question" });
+          }
+
+          const questionId = qInsert.insertId;
+
+          if (question_type === "fill_blank") {
+            return recalculateQuizTotalPoints(quizId, (recalcErr) => {
+              if (recalcErr) {
+                return res.status(500).json({ success: false, message: "Question added, but failed to recalculate quiz points" });
+              }
+              return res.status(201).json({ success: true, message: "Question added successfully", questionId });
+            });
+          }
+
+          if (!Array.isArray(choices) || choices.length < 2) {
+            return res.status(400).json({
+              success: false,
+              message: "Choice-based questions require at least 2 choices",
+            });
+          }
+
+          const values = choices.map((choice, index) => [
+            questionId,
+            String(choice.choice_text || "").trim(),
+            choice.is_correct ? 1 : 0,
+            Number(choice.sort_order) || index + 1,
+          ]);
+
+          const insertChoicesQuery = `
+            INSERT INTO quiz_question_choices (
+              question_id, choice_text, is_correct, sort_order
+            )
+            VALUES ?
+          `;
+
+          dbms.dbquery(insertChoicesQuery, [values], (choiceErr) => {
+            if (choiceErr) {
+              return res.status(500).json({ success: false, message: "Question created, but choices failed to save" });
+            }
+
+            recalculateQuizTotalPoints(quizId, (recalcErr) => {
+              if (recalcErr) {
+                return res.status(500).json({ success: false, message: "Question added, but failed to recalculate quiz points" });
+              }
+              return res.status(201).json({ success: true, message: "Question added successfully", questionId });
+            });
+          });
+        }
+      );
+    });
+  }
+);
+
+app.delete( "/api/questions/:questionId",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const questionId = Number(req.params.questionId);
+
+    if (!Number.isInteger(questionId) || questionId <= 0) {
+      return res.status(400).json({ success: false, message: "Valid question id is required" });
+    }
+
+    const lookupQuery = `
+      SELECT qq.id, qq.quiz_id, q.module_id, m.created_by_email
+      FROM quiz_questions qq
+      JOIN quiz_definitions q ON qq.quiz_id = q.id
+      JOIN course_modules m ON q.module_id = m.id
+      WHERE qq.id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(lookupQuery, [questionId], (err, lookupRes) => {
+      if (err) return res.status(500).json({ success: false, message: "Failed to validate question" });
+      if (!lookupRes || lookupRes.length === 0) {
+        return res.status(404).json({ success: false, message: "Question not found" });
+      }
+
+      const row = lookupRes[0];
+      if (!canManageModuleQuiz(row, req.user)) {
+        return res.status(403).json({ success: false, message: "Not allowed" });
+      }
+
+      dbms.dbquery(
+        `DELETE FROM quiz_question_choices WHERE question_id = ?`,
+        [questionId],
+        (choiceErr) => {
+          if (choiceErr) return res.status(500).json({ success: false, message: "Failed to delete choices" });
+
+          dbms.dbquery(
+            `DELETE FROM quiz_questions WHERE id = ?`,
+            [questionId],
+            (deleteErr) => {
+              if (deleteErr) return res.status(500).json({ success: false, message: "Failed to delete question" });
+
+              recalculateQuizTotalPoints(row.quiz_id, (recalcErr) => {
+                if (recalcErr) {
+                  return res.status(500).json({ success: false, message: "Question deleted, but failed to recalculate quiz points" });
+                }
+                return res.json({ success: true, message: "Question deleted successfully" });
+              });
+            }
+          );
+        }
+      );
+    });
+  }
+);
+
+app.get( "/api/modules/:moduleId/take-quiz",
+  authenticateToken,
+  authorizeRoles("educator"),
+  (req, res) => {
+    const moduleId = Number(req.params.moduleId);
+
+    if (!Number.isInteger(moduleId) || moduleId <= 0) {
+      return res.status(400).json({ success: false, message: "Valid module id is required" });
+    }
+
+    const query = `
+      SELECT
+        q.id AS quiz_id,
+        q.title,
+        q.instructions,
+        q.pass_percentage,
+        q.total_points,
+        q.time_limit_minutes,
+        q.is_published,
+        m.id AS module_id,
+        m.course_id,
+        m.title AS module_title
+      FROM quiz_definitions q
+      JOIN course_modules m ON q.module_id = m.id
+      WHERE q.module_id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(query, [moduleId], (err, quizRes) => {
+      if (err) return res.status(500).json({ success: false, message: "Failed to load quiz" });
+      if (!quizRes || quizRes.length === 0) {
+        return res.status(404).json({ success: false, message: "Quiz not found" });
+      }
+
+      const quiz = quizRes[0];
+      if (!quiz.is_published) {
+        return res.status(403).json({ success: false, message: "Quiz is not published" });
+      }
+
+      const latestAttemptQuery = `
+        SELECT id, locked_until, status, submitted_at, earned_points, total_points, percentage, passed
+        FROM quiz_attempts
+        WHERE quiz_id = ? AND user_email = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `;
+
+      dbms.dbquery(
+        latestAttemptQuery,
+        [quiz.quiz_id, req.user.email],
+        (attemptErr, attemptRes) => {
+          if (attemptErr) {
+            return res.status(500).json({ success: false, message: "Failed to load quiz attempt state" });
+          }
+
+          const latestAttempt = attemptRes?.[0] || null;
+
+          const questionQuery = `
+            SELECT id, question_type, prompt, points, sort_order
+            FROM quiz_questions
+            WHERE quiz_id = ?
+            ORDER BY sort_order ASC, id ASC
+          `;
+
+          dbms.dbquery(questionQuery, [quiz.quiz_id], (qErr, qRes) => {
+            if (qErr) return res.status(500).json({ success: false, message: "Failed to load questions" });
+
+            const questions = qRes || [];
+            if (questions.length === 0) {
+              return res.json({
+                success: true,
+                data: { quiz, latestAttempt, questions: [] },
+              });
+            }
+
+            const questionIds = questions.map((q) => q.id);
+            const placeholders = questionIds.map(() => "?").join(", ");
+
+            const choicesQuery = `
+              SELECT id, question_id, choice_text, sort_order
+              FROM quiz_question_choices
+              WHERE question_id IN (${placeholders})
+              ORDER BY sort_order ASC, id ASC
+            `;
+
+            dbms.dbquery(choicesQuery, questionIds, (cErr, cRes) => {
+              if (cErr) return res.status(500).json({ success: false, message: "Failed to load choices" });
+
+              const questionsWithChoices = questions.map((question) => ({
+                ...question,
+                choices: (cRes || []).filter((c) => Number(c.question_id) === Number(question.id)),
+              }));
+
+              return res.json({
+                success: true,
+                data: {
+                  quiz,
+                  latestAttempt,
+                  questions: questionsWithChoices,
+                },
+              });
+            });
+          });
+        }
+      );
+    });
+  }
+);
+
+app.post( "/api/modules/:moduleId/attempts/start",
+  authenticateToken,
+  authorizeRoles("educator"),
+  (req, res) => {
+    const moduleId = Number(req.params.moduleId);
+    const userEmail = String(req.user.email).trim().toLowerCase();
+
+    if (!Number.isInteger(moduleId) || moduleId <= 0) {
+      return res.status(400).json({ success: false, message: "Valid module id is required" });
+    }
+
+    const quizQuery = `
+      SELECT q.id AS quiz_id, q.is_published, m.id AS module_id, m.course_id
+      FROM quiz_definitions q
+      JOIN course_modules m ON q.module_id = m.id
+      WHERE q.module_id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(quizQuery, [moduleId], (err, quizRes) => {
+      if (err) return res.status(500).json({ success: false, message: "Failed to load quiz" });
+      if (!quizRes || quizRes.length === 0) {
+        return res.status(404).json({ success: false, message: "Quiz not found" });
+      }
+
+      const quiz = quizRes[0];
+      if (!quiz.is_published) {
+        return res.status(403).json({ success: false, message: "Quiz is not published" });
+      }
+
+      const latestAttemptQuery = `
+        SELECT *
+        FROM quiz_attempts
+        WHERE quiz_id = ? AND user_email = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `;
+
+      dbms.dbquery(latestAttemptQuery, [quiz.quiz_id, userEmail], (aErr, aRes) => {
+        if (aErr) return res.status(500).json({ success: false, message: "Failed to validate previous attempt" });
+
+        const latestAttempt = aRes?.[0] || null;
+
+        if (
+          latestAttempt &&
+          latestAttempt.locked_until &&
+          new Date(latestAttempt.locked_until).getTime() > Date.now()
+        ) {
+          return res.status(403).json({
+            success: false,
+            message: "Quiz is locked for 4 hours after submission",
+            lockedUntil: latestAttempt.locked_until,
+          });
+        }
+
+        const insertQuery = `
+          INSERT INTO quiz_attempts (
+            quiz_id, module_id, course_id, user_email, status
+          )
+          VALUES (?, ?, ?, ?, 'in_progress')
+        `;
+
+        dbms.dbquery(
+          insertQuery,
+          [quiz.quiz_id, quiz.module_id, quiz.course_id, userEmail],
+          (insertErr, insertRes) => {
+            if (insertErr) {
+              return res.status(500).json({ success: false, message: "Failed to start quiz attempt" });
+            }
+
+            return res.status(201).json({
+              success: true,
+              message: "Quiz attempt started",
+              attemptId: insertRes.insertId,
+            });
+          }
+        );
+      });
+    });
+  }
+);
+
+app.post( "/api/attempts/:attemptId/submit",
+  authenticateToken,
+  authorizeRoles("educator"),
+  (req, res) => {
+    const attemptId = Number(req.params.attemptId);
+    const answers = Array.isArray(req.body?.answers) ? req.body.answers : [];
+    const userEmail = String(req.user.email).trim().toLowerCase();
+
+    if (!Number.isInteger(attemptId) || attemptId <= 0) {
+      return res.status(400).json({ success: false, message: "Valid attempt id is required" });
+    }
+
+    const attemptQuery = `
+      SELECT *
+      FROM quiz_attempts
+      WHERE id = ? AND user_email = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(attemptQuery, [attemptId, userEmail], (aErr, aRes) => {
+      if (aErr) return res.status(500).json({ success: false, message: "Failed to validate attempt" });
+      if (!aRes || aRes.length === 0) {
+        return res.status(404).json({ success: false, message: "Attempt not found" });
+      }
+
+      const attempt = aRes[0];
+      if (attempt.status !== "in_progress") {
+        return res.status(400).json({ success: false, message: "Attempt is already submitted" });
+      }
+
+      const quizQuery = `
+        SELECT *
+        FROM quiz_definitions
+        WHERE id = ?
+        LIMIT 1
+      `;
+
+      dbms.dbquery(quizQuery, [attempt.quiz_id], (qErr, qRes) => {
+        if (qErr) return res.status(500).json({ success: false, message: "Failed to load quiz" });
+        if (!qRes || qRes.length === 0) {
+          return res.status(404).json({ success: false, message: "Quiz not found" });
+        }
+
+        const quiz = qRes[0];
+
+        const questionsQuery = `
+          SELECT *
+          FROM quiz_questions
+          WHERE quiz_id = ?
+          ORDER BY sort_order ASC, id ASC
+        `;
+
+        dbms.dbquery(questionsQuery, [quiz.id], (qqErr, qqRes) => {
+          if (qqErr) return res.status(500).json({ success: false, message: "Failed to load questions" });
+
+          const questions = qqRes || [];
+          if (questions.length === 0) {
+            return res.status(400).json({ success: false, message: "Quiz has no questions" });
+          }
+
+          const questionIds = questions.map((q) => q.id);
+          const placeholders = questionIds.map(() => "?").join(", ");
+
+          const choicesQuery = `
+            SELECT *
+            FROM quiz_question_choices
+            WHERE question_id IN (${placeholders})
+          `;
+
+          dbms.dbquery(choicesQuery, questionIds, (cErr, cRes) => {
+            if (cErr) return res.status(500).json({ success: false, message: "Failed to load choices" });
+
+            const choices = cRes || [];
+            const answerRows = [];
+            let totalPoints = 0;
+            let earnedPoints = 0;
+
+            for (const question of questions) {
+              totalPoints += Number(question.points || 0);
+
+              const submittedAnswer =
+                answers.find((a) => Number(a.question_id) === Number(question.id)) || null;
+
+              let isCorrect = 0;
+              let earned = 0;
+              let selectedChoiceId = null;
+              let answerText = null;
+
+              if (question.question_type === "multiple_choice" || question.question_type === "true_false") {
+                selectedChoiceId = submittedAnswer?.selected_choice_id
+                  ? Number(submittedAnswer.selected_choice_id)
+                  : null;
+
+                const correctChoice = choices.find(
+                  (c) =>
+                    Number(c.question_id) === Number(question.id) &&
+                    Number(c.is_correct) === 1
+                );
+
+                if (
+                  correctChoice &&
+                  selectedChoiceId &&
+                  Number(correctChoice.id) === Number(selectedChoiceId)
+                ) {
+                  isCorrect = 1;
+                  earned = Number(question.points || 0);
+                }
+              }
+
+              if (question.question_type === "fill_blank") {
+                answerText = String(submittedAnswer?.answer_text || "");
+                if (
+                  normalizeQuizText(answerText) ===
+                  normalizeQuizText(question.correct_text)
+                ) {
+                  isCorrect = 1;
+                  earned = Number(question.points || 0);
+                }
+              }
+
+              earnedPoints += earned;
+
+              answerRows.push([
+                attemptId,
+                question.id,
+                selectedChoiceId,
+                answerText,
+                isCorrect,
+                earned,
+              ]);
+            }
+
+            const percentage = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
+            const passed = percentage >= Number(quiz.pass_percentage || 70) ? 1 : 0;
+
+            const deleteOldAnswersQuery = `
+              DELETE FROM quiz_attempt_answers
+              WHERE attempt_id = ?
+            `;
+
+            dbms.dbquery(deleteOldAnswersQuery, [attemptId], (delErr) => {
+              if (delErr) return res.status(500).json({ success: false, message: "Failed to clear previous answers" });
+
+              const insertAnswersQuery = `
+                INSERT INTO quiz_attempt_answers (
+                  attempt_id, question_id, selected_choice_id, answer_text, is_correct, earned_points
+                )
+                VALUES ?
+              `;
+
+              dbms.dbquery(insertAnswersQuery, [answerRows], (insertErr) => {
+                if (insertErr) return res.status(500).json({ success: false, message: "Failed to save quiz answers" });
+
+                const finalizeQuery = `
+                  UPDATE quiz_attempts
+                  SET
+                    submitted_at = NOW(),
+                    locked_until = DATE_ADD(NOW(), INTERVAL 4 HOUR),
+                    total_points = ?,
+                    earned_points = ?,
+                    percentage = ?,
+                    passed = ?,
+                    status = 'submitted'
+                  WHERE id = ?
+                `;
+
+                dbms.dbquery(
+                  finalizeQuery,
+                  [totalPoints, earnedPoints, percentage, passed, attemptId],
+                  (finalErr) => {
+                    if (finalErr) {
+                      return res.status(500).json({ success: false, message: "Failed to finalize attempt" });
+                    }
+
+                    return res.json({
+                      success: true,
+                      message: "Quiz submitted successfully",
+                      data: {
+                        attemptId,
+                        total_points: totalPoints,
+                        earned_points: earnedPoints,
+                        percentage,
+                        passed: Boolean(passed),
+                        locked_until: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+                      },
+                    });
+                  }
+                );
+              });
+            });
+          });
+        });
+      });
+    });
+  }
+);
+
+app.post( "/api/attempts/:attemptId/violation",
+  authenticateToken,
+  authorizeRoles("educator"),
+  (req, res) => {
+    const attemptId = Number(req.params.attemptId);
+    const userEmail = String(req.user.email).trim().toLowerCase();
+
+    if (!Number.isInteger(attemptId) || attemptId <= 0) {
+      return res.status(400).json({ success: false, message: "Valid attempt id is required" });
+    }
+
+    const query = `
+      UPDATE quiz_attempts
+      SET violation_count = violation_count + 1
+      WHERE id = ? AND user_email = ? AND status = 'in_progress'
+    `;
+
+    dbms.dbquery(query, [attemptId, userEmail], (err) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "Failed to record violation" });
+      }
+
+      const lookupQuery = `
+        SELECT violation_count
+        FROM quiz_attempts
+        WHERE id = ?
+        LIMIT 1
+      `;
+
+      dbms.dbquery(lookupQuery, [attemptId], (lookupErr, lookupRes) => {
+        if (lookupErr || !lookupRes || lookupRes.length === 0) {
+          return res.status(500).json({ success: false, message: "Failed to read violation count" });
+        }
+
+        const violationCount = Number(lookupRes[0].violation_count || 0);
+
+        return res.json({
+          success: true,
+          violationCount,
+          shouldAutoSubmit: violationCount >= 2,
+        });
+      });
+    });
+  }
+);
+
+app.get( "/api/modules/:moduleId/attempts",
+  authenticateToken,
+  authorizeRoles("admin", "trainer"),
+  (req, res) => {
+    const moduleId = Number(req.params.moduleId);
+
+    if (!Number.isInteger(moduleId) || moduleId <= 0) {
+      return res.status(400).json({ success: false, message: "Valid module id is required" });
+    }
+
+    const moduleQuery = `
+      SELECT id, title, created_by_email
+      FROM course_modules
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    dbms.dbquery(moduleQuery, [moduleId], (mErr, mRes) => {
+      if (mErr) return res.status(500).json({ success: false, message: "Failed to validate module" });
+      if (!mRes || mRes.length === 0) {
+        return res.status(404).json({ success: false, message: "Module not found" });
+      }
+      if (!canManageModuleQuiz(mRes[0], req.user)) {
+        return res.status(403).json({ success: false, message: "Not allowed" });
+      }
+
+      const query = `
+        SELECT
+          qa.id,
+          qa.user_email,
+          qa.started_at,
+          qa.submitted_at,
+          qa.earned_points,
+          qa.total_points,
+          qa.percentage,
+          qa.passed,
+          qa.status,
+          p.fullname
+        FROM quiz_attempts qa
+        LEFT JOIN profile p ON qa.user_email = p.email
+        WHERE qa.module_id = ?
+        ORDER BY qa.id DESC
+      `;
+
+      dbms.dbquery(query, [moduleId], (err, resData) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: "Failed to load quiz attempts" });
+        }
+
+        return res.json({
+          success: true,
+          data: resData || [],
+        });
+      });
+    });
+  }
+);
+
+///END QUIZ API ROUTES///
 
 app.get("/api/discussions", authenticateToken, (req, res) => {
   const query = `

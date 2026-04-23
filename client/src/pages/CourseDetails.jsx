@@ -3,8 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import "../css/course-details.css";
 import API from "../api/api";
 import { useAuth } from "../context/AuthContext";
-import { getModuleSubmissions, getMySubmissions, submitQuiz } from "../api/submissions";
-import { markCourseStarted, checkCourseCompletion } from "../api/courses";
+import { markCourseStarted } from "../api/courses";
 import mammoth from "mammoth";
 
 export default function CourseDetails() {
@@ -26,21 +25,13 @@ export default function CourseDetails() {
   const [addingItem, setAddingItem] = useState(false);
   const [addMessage, setAddMessage] = useState("");
 
-  const [mySubmissions, setMySubmissions] = useState([]);
-  const [moduleSubmissions, setModuleSubmissions] = useState([]);
-  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
-
-  const [quizAnswer, setQuizAnswer] = useState("");
-  const [quizFile, setQuizFile] = useState(null);
-  const [quizSubmitting, setQuizSubmitting] = useState(false);
-  const [quizMessage, setQuizMessage] = useState("");
-  const [quizError, setQuizError] = useState("");
-
   const [newResourceType, setNewResourceType] = useState("file");
   const [newResourceUrl, setNewResourceUrl] = useState("");
+
   const [isEditMode, setIsEditMode] = useState(false);
   const [deletingCourse, setDeletingCourse] = useState(false);
   const [deletingModuleId, setDeletingModuleId] = useState(null);
+  
   const canEditContent = user?.role === "admin" || user?.role === "trainer";
 
   const canDeleteCourse =
@@ -105,57 +96,12 @@ export default function CourseDetails() {
     startCourseIfNeeded();
   }, [id, isEducator]);
 
-  useEffect(() => {
-    const loadMySubmissions = async () => {
-      if (!isEducator) return;
-
-      try {
-        const { data } = await getMySubmissions();
-        setMySubmissions(data?.data || []);
-      } catch (err) {
-        console.error("MY SUBMISSIONS LOAD ERROR:", err);
-      }
-    };
-
-    loadMySubmissions();
-  }, [isEducator]);
 
   const activeModule = useMemo(() => {
     if (activeModuleId === "overview") return null;
     return modules.find((item) => item.id === activeModuleId) || null;
   }, [modules, activeModuleId]);
 
-  const activeEducatorSubmission = useMemo(() => {
-    if (!activeModule || !isEducator) return null;
-
-    return (
-      mySubmissions.find(
-        (submission) => Number(submission.module_id) === Number(activeModule.id)
-      ) || null
-    );
-  }, [activeModule, isEducator, mySubmissions]);
-
-  useEffect(() => {
-    const loadModuleSubmissionsForReview = async () => {
-      if (!activeModule || activeModule.type !== "quiz" || !isTrainerOrAdmin) {
-        setModuleSubmissions([]);
-        return;
-      }
-
-      try {
-        setLoadingSubmissions(true);
-        const { data } = await getModuleSubmissions(activeModule.id);
-        setModuleSubmissions(data?.data || []);
-      } catch (err) {
-        console.error("MODULE SUBMISSIONS LOAD ERROR:", err);
-        setModuleSubmissions([]);
-      } finally {
-        setLoadingSubmissions(false);
-      }
-    };
-
-    loadModuleSubmissionsForReview();
-  }, [activeModule, isTrainerOrAdmin]);
 
   function InlineTextFile({ fileUrl }) {
     const [textContent, setTextContent] = useState("");
@@ -352,7 +298,7 @@ export default function CourseDetails() {
     try {
       setDeletingCourse(true);
       setError("");
-      setAddMessage("Course Deleted Successfully.");
+      setAddMessage("");
 
       const { data } = await API.delete(`/courses/${course.id}`);
 
@@ -360,6 +306,7 @@ export default function CourseDetails() {
         throw new Error(data?.message || "Failed to delete course");
       }
 
+      setAddMessage("Course Deleted Successfully.");
       navigate("/courses");
     } catch (err) {
       console.error("DELETE COURSE ERROR:", err);
@@ -407,44 +354,23 @@ export default function CourseDetails() {
     }
   };
 
-  const handleQuizSubmit = async (e) => {
-    e.preventDefault();
-    if (!activeModule) return;
+  const renderEducatorQuizPanel = () => {
+    if (!activeModule || activeModule.type !== "quiz" || !isEducator) return null;
 
-    try {
-      setQuizSubmitting(true);
-      setQuizMessage("");
-      setQuizError("");
+    return (
+      <div className="quiz-panel">
+        <h3 className="quiz-panel__title">Quiz</h3>
+        <p>Open the quiz and complete all questions before submitting.</p>
 
-      const formData = new FormData();
-      formData.append("answerText", quizAnswer);
-
-      if (quizFile) {
-        formData.append("submissionFile", quizFile);
-      }
-
-      const { data } = await submitQuiz(activeModule.id, formData);
-
-      if (!data?.success) {
-        throw new Error(data?.message || "Failed to submit quiz");
-      }
-
-      await checkCourseCompletion(id);
-
-      setQuizMessage("Quiz submitted successfully.");
-      setQuizAnswer("");
-      setQuizFile(null);
-
-      const refreshed = await getMySubmissions();
-      setMySubmissions(refreshed?.data?.data || []);
-    } catch (err) {
-      console.error("QUIZ SUBMIT ERROR:", err);
-      setQuizError(
-        err?.response?.data?.message || err.message || "Failed to submit quiz."
-      );
-    } finally {
-      setQuizSubmitting(false);
-    }
+        <button
+          type="button"
+          className="quiz-panel__submit"
+          onClick={() => navigate(`/take-quiz/${activeModule.id}`)}
+        >
+          Take Quiz
+        </button>
+      </div>
+    );
   };
 
   const renderCourseFile = (fileUrl, fileType, title) => {
@@ -532,65 +458,7 @@ export default function CourseDetails() {
       return renderCourseFile(item.file_url, item.file_type, item.title);
     };
 
-  const renderEducatorQuizPanel = () => {
-    if (!activeModule || activeModule.type !== "quiz" || !isEducator) return null;
-
-    return (
-      <div className="quiz-panel">
-        <h3 className="quiz-panel__title">Submit Quiz</h3>
-
-        {activeEducatorSubmission ? (
-          <div className="quiz-panel__submissionStatus">
-            <p><strong>Status:</strong> {activeEducatorSubmission.status}</p>
-            <p>
-              <strong>Grade:</strong>{" "}
-              {activeEducatorSubmission.grade || "Not graded yet"}
-            </p>
-            <p>
-              <strong>Feedback:</strong>{" "}
-              {activeEducatorSubmission.feedback || "No feedback yet"}
-            </p>
-
-            {activeEducatorSubmission.file_url && (
-              <a
-                href={activeEducatorSubmission.file_url}
-                target="_blank"
-                rel="noreferrer"
-                className="lesson-view__file-link"
-              >
-                View Submitted File
-              </a>
-            )}
-          </div>
-        ) : (
-          <form onSubmit={handleQuizSubmit} className="quiz-panel__form">
-            <textarea
-              className="quiz-panel__textarea"
-              value={quizAnswer}
-              onChange={(e) => setQuizAnswer(e.target.value)}
-              placeholder="Enter your answer"
-            />
-
-            <input
-              type="file"
-              onChange={(e) => setQuizFile(e.target.files?.[0] || null)}
-            />
-
-            {quizMessage && <p className="quiz-panel__success">{quizMessage}</p>}
-            {quizError && <p className="quiz-panel__error">{quizError}</p>}
-
-            <button
-              type="submit"
-              disabled={quizSubmitting}
-              className="quiz-panel__submit"
-            >
-              {quizSubmitting ? "Submitting..." : "Submit Quiz"}
-            </button>
-          </form>
-        )}
-      </div>
-    );
-  };
+  
 
   const renderTrainerQuizPanel = () => {
     if (!activeModule || activeModule.type !== "quiz" || !isTrainerOrAdmin) return null;
@@ -598,24 +466,33 @@ export default function CourseDetails() {
     return (
       <div className="quiz-panel">
         <div className="quiz-panel__reviewHeader">
-          <h3 className="quiz-panel__title">Submission Review</h3>
+          <h3 className="quiz-panel__title">Quiz Management</h3>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            flexWrap: "wrap",
+            marginTop: "12px",
+          }}
+        >
           <button
             type="button"
             className="quiz-panel__reviewButton"
-            onClick={() => navigate(`/course-submissions/${id}`)}
+            onClick={() => navigate(`/quiz-builder/${activeModule.id}`)}
           >
-            Review Submissions
+            Build Quiz
+          </button>
+
+          <button
+            type="button"
+            className="quiz-panel__reviewButton"
+            onClick={() => navigate(`/quiz-review/${activeModule.id}`)}
+          >
+            Review Attempts
           </button>
         </div>
-
-        {loadingSubmissions ? (
-          <p>Loading submissions...</p>
-        ) : (
-          <p>
-            {moduleSubmissions.length} submission
-            {moduleSubmissions.length === 1 ? "" : "s"} for this quiz.
-          </p>
-        )}
       </div>
     );
   };
@@ -837,6 +714,17 @@ export default function CourseDetails() {
                   style={{ padding: "8px 10px", minWidth: "unset" }}
                 >
                   {deletingModuleId === item.id ? "..." : "Delete"}
+                </button>
+              )}
+
+              {isEditMode && isTrainerOrAdmin && item.type === "quiz" && (
+                <button
+                  type="button"
+                  className="lesson-sidebar__add-btn lesson-sidebar__add-btn--secondary"
+                  onClick={() => navigate(`/quiz-builder/${item.id}`)}
+                  style={{ padding: "8px 10px", minWidth: "unset" }}
+                >
+                  Build
                 </button>
               )}
             </div>

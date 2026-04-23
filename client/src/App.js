@@ -19,6 +19,9 @@ import EducatorProgressPage from "./pages/EducatorProgressPage";
 import MySubmissions from "./pages/MySubmissions";
 import CourseSubmissions from "./pages/CourseSubmissions";
 import ReviewsRedirectPage from "./pages/ReviewsRedirectPage";
+import QuizBuilder from "./pages/QuizBuilder";
+import TakeQuiz from "./pages/TakeQuiz";
+import QuizAttemptsReview from "./pages/QuizAttemptsReview";
 
 function App() {
   return (
@@ -106,6 +109,11 @@ function App() {
             }
           />
         </Route>
+
+        <Route path="/quiz-builder/:moduleId" element={<QuizBuilder />} />
+        <Route path="/take-quiz/:moduleId" element={<TakeQuiz />} />
+        <Route path="/quiz-review/:moduleId" element={<QuizAttemptsReview />} />
+
       </Routes>
     </BrowserRouter>
   );
