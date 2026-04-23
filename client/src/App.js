@@ -106,6 +106,11 @@ function App() {
             }
           />
         </Route>
+
+        <Route path="/quiz-builder/:moduleId" element={<QuizBuilder />} />
+        <Route path="/take-quiz/:moduleId" element={<TakeQuiz />} />
+        <Route path="/quiz-review/:moduleId" element={<QuizAttemptsReview />} />
+
       </Routes>
     </BrowserRouter>
   );
