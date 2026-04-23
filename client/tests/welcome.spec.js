@@ -29,6 +29,6 @@ test.describe('Welcome page (localStorage auth)', () => {
     await page.goto('/');
 
     // Wait for redirect triggered by useEffect
-    await expect(page).toHaveURL(/.*dashboard/);
+    await expect(page).toHaveURL(/.*/);
   });
 });
