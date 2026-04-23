@@ -35,13 +35,14 @@ fi
 
 #init database
 echo -e "creating database\n"
+sudo mysql -e "DROP DATABASE IF EXISTS malawi;"
 sudo mysql -e "CREATE DATABASE malawi;"
-sudo mysql -e "CREATE USER 'admin2'@'localhost' identified by '$DB_PASSWORD';"
+sudo mysql -e "CREATE USER IF NOT EXISTS 'admin2'@'localhost' identified by '$DB_PASSWORD';"
 sudo mysql -e "GRANT ALL PRIVILEGES ON malawi.* to 'admin'@'localhost';"
 sudo mysql -e "FLUSH PRIVILEGES;"
 
 #load database
-mysql -u admin2 -p $DB_PASSWORD malawi < cs341s26mwed.sql 
+mysql -u admin2 -p"$DB_PASSWORD" malawi < cs341s26mwed.sql 
 
 #start server process
 tmux new -d -s uplendo 'node server.js'

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Apr 16, 2026 at 04:42 PM
+-- Generation Time: Apr 23, 2026 at 03:32 PM
 -- Server version: 10.3.39-MariaDB
 -- PHP Version: 7.3.20
 
@@ -67,7 +67,7 @@ INSERT INTO `courses` (`id`, `title`, `instructor`, `lessons`, `quizzes`, `progr
 (16, 'title', 'Davie', 1, 2, 0, 'http://cs341s26mwed.campus.up.edu:3000/uploads/1775925344038-824399425-AGS_security_service_luaocw.png', 'this is test', 'http://cs341s26mwed.campus.up.edu:3000/uploads/1775925344040-446939889-Lab-7.pdf', 'application/pdf', 'malawi@up.edu', 'file', NULL, NULL),
 (17, 'Test URL', 'TEST', 1, 2, 0, '', 'Test', NULL, NULL, 'malawi@up.edu', 'url', 'https://youtu.be/1hMmZak1-6M?si=-rw0QkdJezELfXlj', 'https://www.youtube.com/embed/1hMmZak1-6M'),
 (18, 'test url', 'test url', 0, 0, 0, '', 'test url', NULL, NULL, 'malawi@up.edu', 'url', 'https://youtu.be/IC8Gc7yACp0?si=a0eZdh0Ue0FxNK3h', 'https://www.youtube.com/embed/IC8Gc7yACp0'),
-(19, 'Test URL', 'test URL', 0, 0, 0, '', 'tarslkfdj', NULL, NULL, 'malawi@up.edu', 'url', 'https://youtu.be/IC8Gc7yACp0?si=bQjH3Q9rebOg-dvv', 'https://www.youtube.com/embed/IC8Gc7yACp0');
+(19, 'Test URL', 'test URL', 0, 1, 0, '', 'tarslkfdj', NULL, NULL, 'malawi@up.edu', 'url', 'https://youtu.be/IC8Gc7yACp0?si=bQjH3Q9rebOg-dvv', 'https://www.youtube.com/embed/IC8Gc7yACp0');
 
 -- --------------------------------------------------------
 
@@ -119,7 +119,8 @@ INSERT INTO `course_modules` (`id`, `course_id`, `title`, `type`, `content`, `fi
 (22, 16, 'rtest', 'quiz', 'test', '', '', 3, 'malawi@up.edu', 'file', NULL, NULL),
 (23, 17, 'Module Test URL', 'lesson', 'Lesson URL', NULL, NULL, 1, 'malawi@up.edu', 'url', 'https://www.youtube.com/watch?v=kwvXeeNwnZU&list=RD1hMmZak1-6M&index=11', 'https://www.youtube.com/embed/kwvXeeNwnZU'),
 (24, 17, 'quiz', 'quiz', 'quiz', 'http://cs341s26mwed.campus.up.edu:3000/uploads/1776212516740-57695523-CS_MCQ_300_Questions(2)---Copy.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 2, 'malawi@up.edu', 'file', NULL, NULL),
-(25, 17, 'Test Quiz', 'quiz', 'test quiz', 'http://cs341s26mwed.campus.up.edu:3000/uploads/1776212619528-574967406-Computer-Science-Major-Field-Compet.txt', 'text/plain', 3, 'malawi@up.edu', 'file', NULL, NULL);
+(25, 17, 'Test Quiz', 'quiz', 'test quiz', 'http://cs341s26mwed.campus.up.edu:3000/uploads/1776212619528-574967406-Computer-Science-Major-Field-Compet.txt', 'text/plain', 3, 'malawi@up.edu', 'file', NULL, NULL),
+(27, 19, 'quiz', 'quiz', 'QUIZ', 'http://cs341s26mwed.campus.up.edu:3000/uploads/1776562200092-586952696-Computer-Science-Major-Field-Compet.txt', 'text/plain', 1, 'hassin_trainer@gmail.com', 'file', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -224,7 +225,7 @@ CREATE TABLE `notifications` (
 INSERT INTO `notifications` (`id`, `recipient_email`, `actor_email`, `type`, `title`, `message`, `link`, `is_read`, `created_at`, `read_at`) VALUES
 (1, 'malawi_principal@up.edu', 'malawi@up.edu', 'principal_assigned', 'You were assigned as a principal', 'You have been assigned as the principal $(organizationName).', '/organization-management', 0, '2026-04-14 23:08:50', NULL),
 (2, 'educator@up.edu', 'malawi_principal@up.edu', 'course_assigned', 'New course assigned', 'A new course has been assigned to you.', '/course-details/19', 1, '2026-04-15 00:51:43', '2026-04-15 00:52:38'),
-(3, 'malawi@up.edu', 'educator@up.edu', 'quiz_submitted', 'New quiz submission received', 'A learner submitted \"quiz\".', '/modules/24/submissions', 0, '2026-04-15 00:54:13', NULL),
+(3, 'malawi@up.edu', 'educator@up.edu', 'quiz_submitted', 'New quiz submission received', 'A learner submitted \"quiz\".', '/modules/24/submissions', 1, '2026-04-15 00:54:13', '2026-04-19 01:27:49'),
 (4, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 00:57:02', NULL),
 (5, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:20', NULL),
 (6, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:22', NULL),
@@ -295,12 +296,102 @@ CREATE TABLE `profile` (
 --
 
 INSERT INTO `profile` (`id`, `photo`, `fullname`, `role`, `email`, `whatsapp`, `organization`, `specialization`, `created_at`, `organization_id`) VALUES
-(2, 'http://cs341s26mwed.campus.up.edu:3000/uploads/1775927577897-300379419-png-transparent-default-avatar.png', 'Malawi', 'admin', 'malawi@up.edu', '502-56413', '', 'Physics, English, ', '2026-04-08 04:06:06', 1),
-(3, NULL, 'Educator', 'educator', 'educator@up.edu', NULL, NULL, NULL, '2026-04-09 17:06:09', 4),
+(2, 'http://cs341s26mwed.campus.up.edu:3000/uploads/1776562035283-264659238-default-avatar.png', 'Malawi', 'admin', 'malawi@up.edu', '6153332156', '', '', '2026-04-08 04:06:06', 1),
+(3, NULL, 'Educator', 'educator', 'educator@up.edu', NULL, NULL, NULL, '2026-04-09 17:06:09', NULL),
 (4, '', 'Principal', 'principal', 'principal@up.edu', '', 'University of Portland', 'CS', '2026-04-09 17:06:44', NULL),
 (5, NULL, 'Trainer', 'trainer', 'trainer@up.edu', NULL, NULL, NULL, '2026-04-09 17:07:05', 4),
 (6, NULL, 'Hassin', 'trainer', 'hassin_trainer@gmail.com', NULL, NULL, NULL, '2026-04-09 17:16:30', 4),
 (7, NULL, 'Principal', 'principal', 'malawi_principal@up.edu', NULL, NULL, NULL, '2026-04-09 17:18:07', 4);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `quiz_attempts`
+--
+
+CREATE TABLE `quiz_attempts` (
+  `id` int(11) NOT NULL,
+  `quiz_id` int(11) NOT NULL,
+  `module_id` int(11) NOT NULL,
+  `course_id` int(11) NOT NULL,
+  `user_email` varchar(255) NOT NULL,
+  `started_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `submitted_at` timestamp NULL DEFAULT NULL,
+  `locked_until` timestamp NULL DEFAULT NULL,
+  `total_points` decimal(8,2) NOT NULL DEFAULT 0.00,
+  `earned_points` decimal(8,2) NOT NULL DEFAULT 0.00,
+  `percentage` decimal(5,2) NOT NULL DEFAULT 0.00,
+  `passed` tinyint(1) NOT NULL DEFAULT 0,
+  `violation_count` int(11) NOT NULL DEFAULT 0,
+  `status` enum('in_progress','submitted','expired','auto_submitted') NOT NULL DEFAULT 'in_progress'
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `quiz_attempt_answers`
+--
+
+CREATE TABLE `quiz_attempt_answers` (
+  `id` int(11) NOT NULL,
+  `attempt_id` int(11) NOT NULL,
+  `question_id` int(11) NOT NULL,
+  `selected_choice_id` int(11) DEFAULT NULL,
+  `answer_text` text DEFAULT NULL,
+  `is_correct` tinyint(1) NOT NULL DEFAULT 0,
+  `earned_points` decimal(8,2) NOT NULL DEFAULT 0.00
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `quiz_definitions`
+--
+
+CREATE TABLE `quiz_definitions` (
+  `id` int(11) NOT NULL,
+  `module_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `instructions` text DEFAULT NULL,
+  `pass_percentage` decimal(5,2) NOT NULL DEFAULT 70.00,
+  `total_points` decimal(8,2) NOT NULL DEFAULT 0.00,
+  `time_limit_minutes` int(11) DEFAULT NULL,
+  `is_published` tinyint(1) NOT NULL DEFAULT 0,
+  `created_by_email` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `quiz_questions`
+--
+
+CREATE TABLE `quiz_questions` (
+  `id` int(11) NOT NULL,
+  `quiz_id` int(11) NOT NULL,
+  `question_type` enum('multiple_choice','true_false','fill_blank') NOT NULL,
+  `prompt` text NOT NULL,
+  `points` decimal(8,2) NOT NULL DEFAULT 1.00,
+  `sort_order` int(11) NOT NULL DEFAULT 1,
+  `correct_text` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `quiz_question_choices`
+--
+
+CREATE TABLE `quiz_question_choices` (
+  `id` int(11) NOT NULL,
+  `question_id` int(11) NOT NULL,
+  `choice_text` text NOT NULL,
+  `is_correct` tinyint(1) NOT NULL DEFAULT 0,
+  `sort_order` int(11) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 -- --------------------------------------------------------
 
@@ -424,6 +515,41 @@ ALTER TABLE `profile`
   ADD KEY `fk_profile_organization` (`organization_id`);
 
 --
+-- Indexes for table `quiz_attempts`
+--
+ALTER TABLE `quiz_attempts`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_quiz_attempts_user_quiz` (`user_email`,`quiz_id`);
+
+--
+-- Indexes for table `quiz_attempt_answers`
+--
+ALTER TABLE `quiz_attempt_answers`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_quiz_attempt_answers_attempt` (`attempt_id`);
+
+--
+-- Indexes for table `quiz_definitions`
+--
+ALTER TABLE `quiz_definitions`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `module_id` (`module_id`);
+
+--
+-- Indexes for table `quiz_questions`
+--
+ALTER TABLE `quiz_questions`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_quiz_questions_quiz_id` (`quiz_id`);
+
+--
+-- Indexes for table `quiz_question_choices`
+--
+ALTER TABLE `quiz_question_choices`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_quiz_choices_question_id` (`question_id`);
+
+--
 -- Indexes for table `quiz_submissions`
 --
 ALTER TABLE `quiz_submissions`
@@ -452,7 +578,7 @@ ALTER TABLE `courses`
 -- AUTO_INCREMENT for table `course_modules`
 --
 ALTER TABLE `course_modules`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT for table `discussions`
@@ -489,6 +615,36 @@ ALTER TABLE `organizations`
 --
 ALTER TABLE `profile`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
+-- AUTO_INCREMENT for table `quiz_attempts`
+--
+ALTER TABLE `quiz_attempts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `quiz_attempt_answers`
+--
+ALTER TABLE `quiz_attempt_answers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `quiz_definitions`
+--
+ALTER TABLE `quiz_definitions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `quiz_questions`
+--
+ALTER TABLE `quiz_questions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `quiz_question_choices`
+--
+ALTER TABLE `quiz_question_choices`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `quiz_submissions`
