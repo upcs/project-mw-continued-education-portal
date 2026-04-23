@@ -458,65 +458,7 @@ export default function CourseDetails() {
       return renderCourseFile(item.file_url, item.file_type, item.title);
     };
 
-  const renderEducatorQuizPanel = () => {
-    if (!activeModule || activeModule.type !== "quiz" || !isEducator) return null;
-
-    return (
-      <div className="quiz-panel">
-        <h3 className="quiz-panel__title">Submit Quiz</h3>
-
-        {activeEducatorSubmission ? (
-          <div className="quiz-panel__submissionStatus">
-            <p><strong>Status:</strong> {activeEducatorSubmission.status}</p>
-            <p>
-              <strong>Grade:</strong>{" "}
-              {activeEducatorSubmission.grade || "Not graded yet"}
-            </p>
-            <p>
-              <strong>Feedback:</strong>{" "}
-              {activeEducatorSubmission.feedback || "No feedback yet"}
-            </p>
-
-            {activeEducatorSubmission.file_url && (
-              <a
-                href={activeEducatorSubmission.file_url}
-                target="_blank"
-                rel="noreferrer"
-                className="lesson-view__file-link"
-              >
-                View Submitted File
-              </a>
-            )}
-          </div>
-        ) : (
-          <form onSubmit={handleQuizSubmit} className="quiz-panel__form">
-            <textarea
-              className="quiz-panel__textarea"
-              value={quizAnswer}
-              onChange={(e) => setQuizAnswer(e.target.value)}
-              placeholder="Enter your answer"
-            />
-
-            <input
-              type="file"
-              onChange={(e) => setQuizFile(e.target.files?.[0] || null)}
-            />
-
-            {quizMessage && <p className="quiz-panel__success">{quizMessage}</p>}
-            {quizError && <p className="quiz-panel__error">{quizError}</p>}
-
-            <button
-              type="submit"
-              disabled={quizSubmitting}
-              className="quiz-panel__submit"
-            >
-              {quizSubmitting ? "Submitting..." : "Submit Quiz"}
-            </button>
-          </form>
-        )}
-      </div>
-    );
-  };
+  
 
   const renderTrainerQuizPanel = () => {
     if (!activeModule || activeModule.type !== "quiz" || !isTrainerOrAdmin) return null;
