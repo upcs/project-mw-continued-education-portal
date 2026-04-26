@@ -296,7 +296,8 @@ function getUserWithProfileByEmail(email, callback) {
       p.organization_id,
       COALESCE(p.photo, '') AS photo,
       COALESCE(p.whatsapp, '') AS whatsapp,
-      COALESCE(p.specialization, '') AS specialization
+      COALESCE(p.specialization, '') AS specialization,
+      COALESCE(p.approval_status, 'approved') AS approval_status
     FROM users u
     LEFT JOIN profile p ON p.email = u.email
     LEFT JOIN organizations o ON p.organization_id = o.id
@@ -353,6 +354,7 @@ app.post("/api/auth/login", (req, res) => {
         message: "Server error during login",
       });
     }
+
     if (!response || response.length === 0) {
       return res.status(404).json({
         success: false,
@@ -370,6 +372,20 @@ app.post("/api/auth/login", (req, res) => {
       });
     }
 
+    if (user.approval_status === "pending") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is pending admin approval.",
+      });
+    }
+
+    if (user.approval_status === "rejected") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account request was rejected.",
+      });
+    }
+
     const safeUser = {
       id: user.id,
       email: user.email,
@@ -380,6 +396,7 @@ app.post("/api/auth/login", (req, res) => {
       photo: user.photo || "",
       whatsapp: user.whatsapp || "",
       specialization: user.specialization || "",
+      approval_status: user.approval_status || "approved",
     };
 
     const token = createToken(safeUser);
@@ -529,7 +546,7 @@ app.post("/api/auth/signup", async (req, res) => {
             }
 
             dbms.dbquery(
-              "INSERT INTO profile (email, fullname, role) VALUES (?, ?, ?)",
+              "INSERT INTO profile (email, fullname, role, approval_status) VALUES (?, ?, ?, 'pending')",
               [normalizedEmail, fullname, normalizedRole],
               (profileErr) => {
                 if (profileErr) {
@@ -619,7 +636,7 @@ app.post( "/api/courses/upload",
 
       fileUrl = `${APP_BASE_URL}/uploads/${courseFile.filename}`;
 
-      fileType = detectUploadedFileType(courseFileFile);
+      fileType = detectUploadedFileType(courseFile);
     }
 
     if (normalizedResourceType === "url") {
@@ -1934,7 +1951,7 @@ app.post("/api/modules/:moduleId/submissions",
               ? String(module.created_by_email).trim().toLocaleLowerCase()
               : null;
 
-            if (!trainerEmail || trainerEmail == req.user.email.toLocaleLowerCase()) {
+            if (!trainerEmail || trainerEmail === req.user.email.toLowerCase()) {
               return sendSuccessResponse();
             }
 
@@ -2193,7 +2210,7 @@ app.get("/api/profile/me", authenticateToken, (req, res) => {
       p.organization_id,
       COALESCE(specialization, '') AS specialization
     FROM profile p
-    LEFT JOIN organizations on ON p.organization_id = o.id
+    LEFT JOIN organizations o ON p.organization_id = o.id
     WHERE email = ?
     LIMIT 1
   `;
@@ -3482,11 +3499,11 @@ app.post("/api/discussions/:id/replies", authenticateToken, (req, res) => {
         createNotification(
           {
             recipientEmail: discussionAuthorEmail,
-            actorEmail: authorEmail,
+            actorEmail: req.user.email,
             type: "discussion_reply",
             title: "New reply to your discussion",
             message: "Someone replied to your discussion.",
-            link: `/discussion?id=${discussionId}`,
+            link: `/discussion?id=${id}`,
           },
           (notificationErr) => {
             if (notificationErr) {
@@ -3650,6 +3667,130 @@ app.get( "/api/admin/users",
   }
 );
 
+app.put( "/api/admin/member-requests/:email/accept",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const email = String(req.params.email).trim().toLowerCase();
+
+    const query = `
+      UPDATE profile
+      SET
+        approval_status = 'approved',
+        approved_by_email = ?,
+        approved_at = NOW(),
+        rejected_by_email = NULL,
+        rejected_at = NULL
+      WHERE email = ?
+        AND approval_status = 'pending'
+    `;
+
+    dbms.dbquery(query, [req.user.email, email], (err, response) => {
+      if (err) {
+        console.error("ACCEPT MEMBER ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to accept member request",
+        });
+      }
+
+      if (!response || response.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Pending member request not found",
+        });
+      }
+
+      createNotification?.({
+        recipientEmail: email,
+        actorEmail: req.user.email,
+        type: "member_request_approved",
+        title: "Account approved",
+        message: "Your account has been approved. You can now log in.",
+        link: "/login",
+      }, () => {});
+
+      return res.json({
+        success: true,
+        message: "Member request accepted",
+      });
+    });
+  }
+);
+
+app.put("/api/admin/member-requests/:email/reject",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const email = String(req.params.email).trim().toLowerCase();
+
+    const query = `
+      UPDATE profile
+      SET
+        approval_status = 'rejected',
+        rejected_by_email = ?,
+        rejected_at = NOW()
+      WHERE email = ?
+        AND approval_status = 'pending'
+    `;
+
+    dbms.dbquery(query, [req.user.email, email], (err, response) => {
+      if (err) {
+        console.error("REJECT MEMBER ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to reject member request",
+        });
+      }
+
+      if (!response || response.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Pending member request not found",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Member request rejected",
+      });
+    });
+  }
+);
+
+app.get( "/api/admin/member-requests",
+  authenticateToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    const query = `
+      SELECT
+        email,
+        fullname,
+        role,
+        organization_id,
+        approval_status
+      FROM profile
+      WHERE approval_status = 'pending'
+      ORDER BY email ASC
+    `;
+
+    dbms.dbquery(query, (err, response) => {
+      if (err) {
+        console.error("MEMBER REQUESTS ERROR:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load member requests",
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: response || [],
+      });
+    });
+  }
+);
+
 app.put( "/api/admin/users/:email/role",
   authenticateToken,
   authorizeRoles("admin"),
@@ -3769,8 +3910,8 @@ app.get( "/api/admin/organizations",
   }
 );
 
-app.put(
-  "/api/admin/organizations/:id/principal",
+app.put( "/api/admin/organizations/:id/principal",
+
   authenticateToken,
   authorizeRoles("admin"),
   (req, res) => {
@@ -3992,7 +4133,7 @@ app.put(
                         type: "principal_assigned",
                         title: "You were assigned as a principal",
                         message: `You are now the principal of ${organizationName}.`,
-                        link: "/organization-management",
+                        link: "/organization",
                       },
                       () => {}
                     );
@@ -4635,6 +4776,7 @@ app.post( "/api/principal/assign-course",
                   {
                     recipientEmail: educatorEmail,
                     actorEmail: requesterEmail,
+                    actorEmail: req.user.email,
                     type: "course_assigned",
                     title: "New course assigned",
                     message: "A new course has been assigned to you.",
@@ -4665,17 +4807,7 @@ app.post( "/api/principal/assign-course",
 
 app.get("/api/notifications", authenticateToken, (req, res) => {
   const query = `
-    SELECT
-      id,
-      recipient_email AS recipientEmail,
-      actor_email AS actorEmail,
-      type,
-      title,
-      message,
-      link,
-      is_read AS isRead,
-      created_at AS createdAt,
-      read_at AS readAt
+    SELECT *
     FROM notifications
     WHERE recipient_email = ?
     ORDER BY created_at DESC

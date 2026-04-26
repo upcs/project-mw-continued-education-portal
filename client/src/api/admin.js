@@ -26,3 +26,12 @@ export const createAdminUser = (payload) =>
 
 export const deleteAdminUser = (email) =>
   API.delete(`/admin/users/${encodeURIComponent(email)}`);
+
+export const getMemberRequests = () =>
+  API.get("/admin/member-requests");
+
+export const acceptMemberRequest = (email) =>
+  API.put(`/admin/member-requests/${encodeURIComponent(email)}/accept`);
+
+export const rejectMemberRequest = (email) =>
+  API.put(`/admin/member-requests/${encodeURIComponent(email)}/reject`);

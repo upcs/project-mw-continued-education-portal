@@ -262,12 +262,40 @@ export default function QuizBuilder() {
               <input
                 type="checkbox"
                 checked={builderForm.is_published}
-                onChange={(e) =>
-                  setBuilderForm((prev) => ({
-                    ...prev,
-                    is_published: e.target.checked,
-                  }))
-                }
+                onChange={async (e) => {
+                  const newValue = e.target.checked;
+
+                  const updated = {
+                    ...builderForm,
+                    is_published: newValue,
+                  };
+
+                  setBuilderForm(updated);
+
+                  try {
+                    setSavingSettings(true);
+                    setError("");
+                    setMessage("");
+
+                    const { data } = await updateQuizDefinition(quiz.id, updated);
+
+                    if (!data?.success) {
+                      throw new Error(data?.message || "Failed to update publish status");
+                    }
+
+                    setMessage(newValue ? "Quiz published." : "Quiz unpublished.");
+                    await loadQuiz();
+                  } catch (err) {
+                    console.error("PUBLISH QUIZ ERROR:", err);
+                    setError(
+                      err?.response?.data?.message ||
+                        err.message ||
+                        "Failed to update publish status"
+                    );
+                  } finally {
+                    setSavingSettings(false);
+                  }
+                }}
               />
               Published
             </label>
