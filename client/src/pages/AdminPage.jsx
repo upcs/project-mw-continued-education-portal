@@ -8,6 +8,9 @@ import {
   createAdminUser,
   deleteAdminUser,
   getOrganizations,
+  getMemberRequests,
+  acceptMemberRequest,
+  rejectMemberRequest,
 } from "../api/admin";
 
 export default function AdminPage() {
@@ -33,6 +36,9 @@ export default function AdminPage() {
 
   const [creatingUser, setCreatingUser] = useState(false);
   const [deletingEmail, setDeletingEmail] = useState("");
+
+  const [memberRequests, setMemberRequests] = useState([]);
+  const [updatingRequestEmail, setUpdatingRequestEmail] = useState("");
 
   const loadAdminData = async () => {
     try {
@@ -64,9 +70,19 @@ export default function AdminPage() {
     }
   };
 
+  const loadMemberRequests = async () => {
+    try {
+      const res = await getMemberRequests();
+      setMemberRequests(res?.data?.data || []);
+    } catch (err) {
+      console.error("LOAD MEMBER REQUESTS ERROR:", err);
+    }
+  };
+
   useEffect(() => {
     loadAdminData();
     loadOrganizations();
+    loadMemberRequests();
   }, []);
 
   const filteredUsers = useMemo(() => {
@@ -181,6 +197,43 @@ export default function AdminPage() {
     }
   };
 
+  const handleAcceptRequest = async (email) => {
+    try {
+      setUpdatingRequestEmail(email);
+      setError("");
+      setMessage("");
+
+      await acceptMemberRequest(email);
+
+      setMessage(`Approved ${email}`);
+      await loadMemberRequests();
+      await loadAdminData();
+    } catch (err) {
+      console.error("ACCEPT REQUEST ERROR:", err);
+      setError(err?.response?.data?.message || "Failed to approve request.");
+    } finally {
+      setUpdatingRequestEmail("");
+    }
+  };
+
+  const handleRejectRequest = async (email) => {
+    try {
+      setUpdatingRequestEmail(email);
+      setError("");
+      setMessage("");
+
+      await rejectMemberRequest(email);
+
+      setMessage(`Rejected ${email}`);
+      await loadMemberRequests();
+    } catch (err) {
+      console.error("REJECT REQUEST ERROR:", err);
+      setError(err?.response?.data?.message || "Failed to reject request.");
+    } finally {
+      setUpdatingRequestEmail("");
+    }
+  };
+
   if (loading) {
     return <div className="admin-page">Loading admin page...</div>;
   }
@@ -211,6 +264,69 @@ export default function AdminPage() {
         <AdminStatCard title="Organizations" value={stats?.totalOrganizations || 0} />
         <AdminStatCard title="Principals" value={stats?.totalPrincipals || 0} />
       </div>
+
+      <section className="admin-card admin-card--requests">
+        <div className="admin-card__header">
+          <h2>Pending Member Requests</h2>
+
+          {memberRequests.length > 0 && (
+            <span className="admin-request-badge">
+              {memberRequests.length} pending
+            </span>
+          )}
+        </div>
+
+        {memberRequests.length === 0 ? (
+          <p>No pending requests.</p>
+        ) : (
+          <table className="admin-requests-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {memberRequests.map((req) => (
+                <tr key={req.email}>
+                  <td>{req.fullname || "—"}</td>
+                  <td>{req.email}</td>
+
+                  <td>
+                    <span className="admin-role-pill">
+                      {req.role || "educator"}
+                    </span>
+                  </td>
+
+                  <td>
+                    <div className="admin-request-actions">
+                      <button
+                        className="admin-btn-accept"
+                        onClick={() => handleAcceptRequest(req.email)}
+                        disabled={updatingRequestEmail === req.email}
+                      >
+                        Accept
+                      </button>
+
+                      <button
+                        className="admin-btn-reject"
+                        onClick={() => handleRejectRequest(req.email)}
+                        disabled={updatingRequestEmail === req.email}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
 
       {isEditMode && (
         <div className="admin-page__grid">
