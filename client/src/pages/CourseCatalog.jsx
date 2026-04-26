@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "../css/course-catalog.css";
 import FilterTabs from "../components/courses/FilterTabs";
 import CourseCard from "../components/courses/CourseCard";
@@ -17,11 +17,11 @@ export default function CourseCatalog() {
   const [deletingCourseId, setDeletingCourseId] = useState(null);
   const [message, setMessage] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
-  const canEditContent = user?.role === "admin" || user?.role === "trainer";
 
   const isEducator = user?.role === "educator";
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
+  const canEditContent = isAdmin || isTrainer;
 
   const loadCourses = useCallback(async () => {
     try {
@@ -39,7 +39,9 @@ export default function CourseCatalog() {
     } catch (err) {
       console.error("COURSE CATALOG ERROR:", err);
       setError(
-        err?.response?.data?.message || err.message || "Something went wrong"
+        err?.response?.data?.message ||
+          err.message ||
+          "Something went wrong while loading courses."
       );
     } finally {
       setLoading(false);
@@ -49,6 +51,51 @@ export default function CourseCatalog() {
   useEffect(() => {
     loadCourses();
   }, [loadCourses]);
+
+  const courseStats = useMemo(() => {
+    const total = courses.length;
+    const enrolled = courses.filter((course) =>
+      ["assigned", "in_progress", "completed"].includes(
+        course.assignment_status
+      )
+    ).length;
+
+    return { total, enrolled };
+  }, [courses]);
+
+  const isEnrolled = (course) =>
+    ["assigned", "in_progress", "completed"].includes(
+      course.assignment_status
+    );
+
+  const canDeleteCourse = (course) => {
+    if (isAdmin) return true;
+
+    if (!isTrainer) return false;
+
+    return (
+      course?.uploaded_by_email?.toLowerCase() === user?.email?.toLowerCase()
+    );
+  };
+
+  const getSourceLabel = (course) => {
+    if (!course.assignment_status) return "";
+
+    if (course.source === "principal") return "Principal Assigned";
+    if (course.source === "self") return "Self Enrolled";
+
+    return "";
+  };
+
+  const getActionLabel = (course) => {
+    if (!isEducator) return "";
+
+    if (enrollingCourseId === course.id) return "Enrolling...";
+    if (course.assignment_status === "completed") return "Completed";
+    if (isEnrolled(course)) return "Enrolled";
+
+    return "Enroll";
+  };
 
   const handleEnroll = async (courseId) => {
     try {
@@ -79,7 +126,9 @@ export default function CourseCatalog() {
     } catch (err) {
       console.error("ENROLL COURSE ERROR:", err);
       setError(
-        err?.response?.data?.message || err.message || "Failed to enroll"
+        err?.response?.data?.message ||
+          err.message ||
+          "Failed to enroll in course."
       );
     } finally {
       setEnrollingCourseId(null);
@@ -109,30 +158,29 @@ export default function CourseCatalog() {
     } catch (err) {
       console.error("DELETE COURSE ERROR:", err);
       setError(
-        err?.response?.data?.message || err.message || "Failed to delete course."
+        err?.response?.data?.message ||
+          err.message ||
+          "Failed to delete course."
       );
     } finally {
       setDeletingCourseId(null);
     }
   };
 
-  const canDeleteCourse = (course) =>
-    isAdmin ||
-    (isTrainer &&
-      course?.uploaded_by_email?.toLowerCase() === user?.email?.toLowerCase());
-
   return (
     <section className="course-catalog">
       <header className="course-catalog__header">
         <div>
-          <h1 className="course-catalog__title">All Courses</h1>
-          <p className="course-catalog__breadcrumb">My Courses / catalog</p>
+          <p className="course-catalog__eyebrow">Course Library</p>
+          <h1 className="course-catalog__title">Course Catalogue</h1>
         </div>
 
         {canEditContent && (
           <button
             type="button"
-            className="course-catalog__edit-btn"
+            className={`course-catalog__edit-btn ${
+              isEditMode ? "course-catalog__edit-btn--active" : ""
+            }`}
             onClick={() => setIsEditMode((prev) => !prev)}
           >
             {isEditMode ? "Done" : "Edit"}
@@ -140,64 +188,78 @@ export default function CourseCatalog() {
         )}
       </header>
 
+      <div className="course-catalog__stats">
+        <div className="course-catalog__stat-card">
+          <p>Total Courses</p>
+          <h3>{courseStats.total}</h3>
+        </div>
+
+        {isEducator && (
+          <div className="course-catalog__stat-card">
+            <p>My Enrolled</p>
+            <h3>{courseStats.enrolled}</h3>
+          </div>
+        )}
+
+        {canEditContent && (
+          <div className="course-catalog__stat-card">
+            <p>Edit Mode</p>
+            <h3>{isEditMode ? "On" : "Off"}</h3>
+          </div>
+        )}
+      </div>
+
       <FilterTabs />
 
       {message && <p className="course-catalog__message">{message}</p>}
-      {loading && <p>Loading courses...</p>}
-      {error && <p>{error}</p>}
-      {!loading && !error && courses.length === 0 && <p>No courses found.</p>}
+      {error && <p className="course-catalog__error">{error}</p>}
+      {loading && <p className="course-catalog__muted">Loading courses...</p>}
 
-      <div className="course-catalog__grid">
-        {courses.map((course) => (
-          <CourseCard
-            key={course.id}
-            id={course.id}
-            title={course.title}
-            author={course.instructor}
-            lessons={course.lessons}
-            quizzes={course.quizzes}
-            thumbnail={course.thumbnail}
-            progress={course.progress}
-            statusLabel={course.assignment_status}
-            sourceLabel={
-              course.source === "principal" ? "Principal Assigned" : "Self Enrolled"
-            }
-            actionLabel={
-              isEducator
-                ? enrollingCourseId === course.id
-                  ? "Enrolling..."
-                  : course.assignment_status === "completed"
-                  ? "Completed"
-                  : course.assignment_status === "assigned" ||
-                    course.assignment_status === "in_progress"
-                  ? "Enrolled"
-                  : "Enroll"
-                : ""
-            }
-            actionDisabled={
-              enrollingCourseId === course.id ||
-              deletingCourseId === course.id ||
-              course.assignment_status === "assigned" ||
-              course.assignment_status === "in_progress" ||
-              course.assignment_status === "completed"
-            }
-            onAction={
-              isEducator && !course.assignment_status
-                ? () => handleEnroll(course.id)
-                : null
-            }
-            canDelete={isEditMode && canDeleteCourse(course)}
-            deleteLabel={
-              deletingCourseId === course.id ? "Deleting..." : "Delete"
-            }
-            onDelete={
-              canDeleteCourse(course)
-                ? () => handleDeleteCourse(course.id, course.title)
-                : null
-            }
-          />
-        ))}
-      </div>
+      {!loading && !error && courses.length === 0 && (
+        <div className="course-catalog__empty">
+          <h3>No courses found</h3>
+          <p>Courses will appear here once they are created.</p>
+        </div>
+      )}
+
+      {!loading && !error && courses.length > 0 && (
+        <div className="course-catalog__grid">
+          {courses.map((course) => (
+            <CourseCard
+              key={course.id}
+              id={course.id}
+              title={course.title}
+              author={course.instructor}
+              lessons={course.lessons}
+              quizzes={course.quizzes}
+              thumbnail={course.thumbnail}
+              progress={course.progress}
+              statusLabel={course.assignment_status}
+              sourceLabel={getSourceLabel(course)}
+              actionLabel={getActionLabel(course)}
+              actionDisabled={
+                enrollingCourseId === course.id ||
+                deletingCourseId === course.id ||
+                isEnrolled(course)
+              }
+              onAction={
+                isEducator && !isEnrolled(course)
+                  ? () => handleEnroll(course.id)
+                  : null
+              }
+              canDelete={isEditMode && canDeleteCourse(course)}
+              deleteLabel={
+                deletingCourseId === course.id ? "Deleting..." : "Delete"
+              }
+              onDelete={
+                canDeleteCourse(course)
+                  ? () => handleDeleteCourse(course.id, course.title)
+                  : null
+              }
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

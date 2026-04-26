@@ -1,4 +1,4 @@
-import { User } from "lucide-react";
+import { BookOpen, ClipboardList, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import "../../css/course-card.css";
 
@@ -26,40 +26,61 @@ export default function CourseCard({
       ? null
       : Math.max(0, Math.min(100, Number(progress) || 0));
 
+  const hasPrimaryAction = Boolean(actionLabel && onAction);
+  const hasDeleteAction = Boolean(canDelete && onDelete);
+
+  const actionClass =
+    actionLabel === "Completed"
+      ? "course-card__action course-card__action--completed"
+      : actionLabel === "Enrolled"
+      ? "course-card__action course-card__action--enrolled"
+      : "course-card__action";
+
+  const openCourse = () => {
+    if (!id) return;
+    navigate(`/course-details/${id}`);
+  };
+
   return (
     <article className="course-card">
-      <div
+      <button
+        type="button"
         className="course-card__image-wrap"
-        onClick={() => navigate(`/course-details/${id}`)}
-        style={{ cursor: "pointer" }}
+        onClick={openCourse}
+        aria-label={`Open ${title}`}
       >
         {thumbnail ? (
-          <img
-            src={thumbnail}
-            alt={title}
-            className="course-card__image"
-          />
+          <img src={thumbnail} alt={title} className="course-card__image" />
         ) : (
           <div className="course-card__image course-card__image--placeholder">
-            No Cover
+            <BookOpen size={32} />
+            <span>No Cover</span>
           </div>
         )}
 
-        <div className="course-card__badge">Course</div>
-      </div>
+        <span className="course-card__badge">Course</span>
+      </button>
 
       <div className="course-card__body">
-        <h3 className="course-card__title">{title}</h3>
+        <button type="button" className="course-card__title-btn" onClick={openCourse}>
+          <h3 className="course-card__title">{title || "Untitled Course"}</h3>
+        </button>
 
         <div className="course-card__meta">
           <User size={14} />
-          <span>{author}</span>
+          <span>{author || "Unknown Instructor"}</span>
         </div>
 
         <div className="course-card__footer">
-          <span>{lessons} lessons</span>
-          <span>•</span>
-          <span>{quizzes} {Number(quizzes) === 1 ? "quiz" : "quizzes"}</span>
+          <span>
+            <BookOpen size={14} />
+            {Number(lessons) || 0} lessons
+          </span>
+
+          <span>
+            <ClipboardList size={14} />
+            {Number(quizzes) || 0} {Number(quizzes) === 1 ? "quiz" : "quizzes"}
+          </span>
         </div>
 
         {normalizedProgress !== null && (
@@ -83,30 +104,25 @@ export default function CourseCard({
         {(statusLabel || sourceLabel) && (
           <div className="course-card__details">
             {statusLabel && (
-              <p className="course-card__detail">
-                <strong>Status:</strong> {statusLabel}
-              </p>
+              <span className="course-card__pill">
+                Status: {String(statusLabel).replaceAll("_", " ")}
+              </span>
             )}
+
             {sourceLabel && (
-              <p className="course-card__detail">
-                <strong>Source:</strong> {sourceLabel}
-              </p>
+              <span className="course-card__pill course-card__pill--source">
+                {sourceLabel}
+              </span>
             )}
           </div>
         )}
 
-        {(actionLabel && onAction) || (canDelete && onDelete) ? (
+        {(hasPrimaryAction || hasDeleteAction) && (
           <div className="course-card__actions">
-            {actionLabel && onAction && (
+            {hasPrimaryAction && (
               <button
                 type="button"
-                className={`course-card__action ${
-                  actionLabel === "Completed"
-                    ? "course-card__action--completed"
-                    : actionLabel === "Enrolled"
-                    ? "course-card__action--enrolled"
-                    : ""
-                }`}
+                className={actionClass}
                 onClick={(e) => {
                   e.stopPropagation();
                   onAction();
@@ -117,7 +133,7 @@ export default function CourseCard({
               </button>
             )}
 
-            {canDelete && onDelete && (
+            {hasDeleteAction && (
               <button
                 type="button"
                 className="course-card__delete"
@@ -131,7 +147,7 @@ export default function CourseCard({
               </button>
             )}
           </div>
-        ) : null}
+        )}
       </div>
     </article>
   );

@@ -85,7 +85,7 @@ export default function MyCourses() {
     }
 
     loadCourses();
-  }, [isTrainerView, selectedTrainer, trainerMode, user]);
+  }, [isTrainerView, selectedTrainer, trainerMode, user?.role]);
 
   const groupedCourses = useMemo(() => {
     const assigned = [];
