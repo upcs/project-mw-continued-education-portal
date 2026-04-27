@@ -1,36 +1,195 @@
 .quiz-review-page {
-  padding: 24px;
-  background: #f7f9fc;
   min-height: 100vh;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(79, 70, 229, 0.1), transparent 30%),
+    linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  box-sizing: border-box;
 }
 
 .quiz-review-page__header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.quiz-review-page__header h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 850;
+  color: #111827;
+  letter-spacing: -0.04em;
+}
+
+.quiz-review-page__header button {
+  border: none;
+  border-radius: 999px;
+  padding: 11px 18px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #ffffff;
+  font-weight: 850;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.22);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.quiz-review-page__header button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(79, 70, 229, 0.28);
+}
+
+.quiz-review-page > p {
+  color: #64748b;
+  font-weight: 650;
+}
+
+.quiz-review-error {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-weight: 750;
+}
+
+.quiz-review-empty {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px dashed #cbd5e1;
+  border-radius: 20px;
+  padding: 28px;
+  color: #64748b;
+  font-weight: 700;
+  text-align: center;
 }
 
 .quiz-review-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-  border-radius: 10px;
+  background: #ffffff;
+  border-radius: 18px;
   overflow: hidden;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
 }
 
 .quiz-review-table th {
-  background: #4f46e5;
-  color: white;
+  background: #f8fafc;
+  color: #475569;
   text-align: left;
-  padding: 10px;
+  padding: 14px;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .quiz-review-table td {
-  padding: 10px;
-  border-bottom: 1px solid #eee;
+  padding: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  font-size: 14px;
 }
 
 .quiz-review-table tr:hover {
-  background: #f9fafb;
+  background: #f8fafc;
+}
+
+.quiz-review-pill {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: capitalize;
+}
+
+.quiz-review-pill--pass {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.quiz-review-pill--fail {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.quiz-review-pill--status {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+/* Dark Mode */
+
+body.dark-mode .quiz-review-page {
+  background:
+    radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 32%),
+    linear-gradient(135deg, #020617 0%, #111827 100%);
+}
+
+body.dark-mode .quiz-review-page__header h1 {
+  color: #f9fafb;
+}
+
+body.dark-mode .quiz-review-page > p,
+body.dark-mode .quiz-review-empty {
+  color: #9ca3af;
+}
+
+body.dark-mode .quiz-review-empty {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: #334155;
+}
+
+body.dark-mode .quiz-review-table {
+  background: #020617;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.35);
+}
+
+body.dark-mode .quiz-review-table th {
+  background: #0f172a;
+  color: #cbd5e1;
+  border-bottom-color: #334155;
+}
+
+body.dark-mode .quiz-review-table td {
+  color: #e5e7eb;
+  border-bottom-color: #1e293b;
+}
+
+body.dark-mode .quiz-review-table tr:hover {
+  background: rgba(30, 41, 59, 0.75);
+}
+
+body.dark-mode .quiz-review-pill--status {
+  background: rgba(99, 102, 241, 0.22);
+  color: #c7d2fe;
+}
+
+body.dark-mode .quiz-review-error {
+  background: rgba(127, 29, 29, 0.35);
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+@media (max-width: 900px) {
+  .quiz-review-page {
+    padding: 16px;
+  }
+
+  .quiz-review-page__header {
+    flex-direction: column;
+  }
+
+  .quiz-review-page__header button {
+    width: 100%;
+  }
+
+  .quiz-review-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
 }

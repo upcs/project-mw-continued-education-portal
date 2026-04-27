@@ -1980,9 +1980,13 @@ app.post("/api/modules/:moduleId/submissions",
 );
 
 app.get("/api/my-submissions", authenticateToken, (req, res) => {
-  const query = `
+  const userEmail = String(req.user.email).trim().toLowerCase();
+
+  const manualSubmissionsQuery = `
     SELECT
-      qs.id,
+      CONCAT('manual-', qs.id) AS id,
+      'manual' AS submission_source,
+      qs.id AS source_id,
       qs.module_id,
       qs.course_id,
       qs.user_email,
@@ -1994,19 +1998,76 @@ app.get("/api/my-submissions", authenticateToken, (req, res) => {
       qs.feedback,
       qs.reviewed_by_email,
       qs.reviewed_at,
+      qs.created_at AS submitted_at,
       qs.created_at,
       qs.attempt_number,
       qs.is_latest,
       cm.title AS module_title,
-      c.title AS course_title
+      c.title AS course_title,
+      NULL AS earned_points,
+      NULL AS total_points,
+      NULL AS percentage,
+      NULL AS passed,
+      NULL AS locked_until
     FROM quiz_submissions qs
     LEFT JOIN course_modules cm ON qs.module_id = cm.id
     LEFT JOIN courses c ON qs.course_id = c.id
     WHERE qs.user_email = ?
-    ORDER BY qs.created_at DESC
   `;
 
-  dbms.dbquery(query, [req.user.email], (err, response) => {
+  const quizBuilderAttemptsQuery = `
+    SELECT
+      CONCAT('builder-', qa.id) AS id,
+      'quiz_builder' AS submission_source,
+      qa.id AS source_id,
+      q.module_id,
+      cm.course_id,
+      qa.user_email,
+      '' AS answer_text,
+      '' AS file_url,
+      '' AS file_type,
+      CASE
+        WHEN qa.status = 'submitted' THEN
+          CASE WHEN qa.passed = 1 THEN 'passed' ELSE 'failed' END
+        ELSE qa.status
+      END AS status,
+      CONCAT(qa.earned_points, ' / ', qa.total_points) AS grade,
+      CASE
+        WHEN qa.status = 'submitted' THEN 'Automatically graded by quiz builder.'
+        ELSE ''
+      END AS feedback,
+      '' AS reviewed_by_email,
+      qa.submitted_at AS reviewed_at,
+      qa.submitted_at AS submitted_at,
+      qa.started_at AS created_at,
+      qa.id AS attempt_number,
+      1 AS is_latest,
+      cm.title AS module_title,
+      c.title AS course_title,
+      qa.earned_points,
+      qa.total_points,
+      qa.percentage,
+      qa.passed,
+      qa.locked_until
+    FROM quiz_attempts qa
+    JOIN quiz_definitions q ON qa.quiz_id = q.id
+    JOIN course_modules cm ON q.module_id = cm.id
+    LEFT JOIN courses c ON cm.course_id = c.id
+    WHERE qa.user_email = ?
+      AND qa.submitted_at IS NOT NULL
+  `;
+
+  const query = `
+    SELECT *
+    FROM (
+      ${manualSubmissionsQuery}
+      UNION ALL
+      ${quizBuilderAttemptsQuery}
+    ) combined
+    ORDER BY submitted_at DESC, created_at DESC
+  `;
+
+  dbms.dbquery(query, [userEmail, userEmail], (err, response) => {
     if (err) {
       console.error("MY SUBMISSIONS ERROR:", err);
       return res.status(500).json({
@@ -2150,16 +2211,21 @@ app.get("/api/dashboard/trainer-stats",
       WHERE status = 'submitted' AND is_latest = 1
     `;
 
-    const pendingByCourseQuery = `
+    const pendingByCourseQuery = 
+    `
       SELECT
         qs.course_id,
         c.title AS course_title,
+        qs.module_id,
+        cm.title AS module_title,
         COUNT(*) AS pendingCount
       FROM quiz_submissions qs
       LEFT JOIN courses c ON qs.course_id = c.id
-      WHERE qs.status = 'submitted' AND qs.is_latest = 1
-      GROUP BY qs.course_id, c.title
-      ORDER BY pendingCount DESC, qs.course_id ASC
+      LEFT JOIN course_modules cm ON qs.module_id = cm.id
+      WHERE qs.status = 'submitted' 
+        AND qs.is_latest = 1
+      GROUP BY qs.course_id, qs.module_id, c.title, cm.title
+      ORDER BY pendingCount DESC
       LIMIT 5
     `;
 

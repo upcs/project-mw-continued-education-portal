@@ -180,16 +180,17 @@ export default function OrganizationsPage() {
   return (
     <section className="organizations-page">
       <header className="organizations-page__header">
+        
         <div>
+          <p className="organizations-page__eyebrow">Admin Control</p>
           <h1 className="organizations-page__title">Organizations</h1>
-          <p className="organizations-page__subtitle">
-            Create organizations, assign principals, and manage organization members.
-          </p>
         </div>
 
         <button
           type="button"
-          className="organizations-primary-btn"
+          className={`organizations-primary-btn ${
+            isEditMode ? "organizations-primary-btn--active" : ""
+          }`}
           onClick={() => setIsEditMode((prev) => !prev)}
         >
           {isEditMode ? "Done" : "Edit"}
@@ -440,7 +441,7 @@ function OrganizationRow({
 
           <button
             type="button"
-            className="organizations-secondary-btn"
+            className="organizations-primary-btn"
             onClick={handlePrincipalAssign}
             disabled={
               !principalEmail ||
@@ -448,17 +449,17 @@ function OrganizationRow({
               principalEmail === organization.principalEmail
             }
           >
-            {assigningPrincipal ? "Assigning..." : "Assign Principal"}
+            {assigningPrincipal ? "Saving..." : "Assign"}
           </button>
 
-          {organization.principalEmail && isEditMode && (
+          {organization.principalEmail && (
             <button
               type="button"
               className="organizations-remove-btn"
               onClick={handlePrincipalRemove}
               disabled={assigningPrincipal}
             >
-              {assigningPrincipal ? "Removing..." : "Remove Principal"}
+              Remove
             </button>
           )}
         </div>
@@ -528,7 +529,7 @@ function OrganizationRow({
               disabled={!selectedUserEmail || updatingUserEmail === selectedUserEmail}
               >
               
-              {updatingUserEmail === selectedUserEmail ? "Add User" : "Add User"}
+              {updatingUserEmail === selectedUserEmail ? "Adding..." : "Add User"}
             </button>
           </div>
         </div>
