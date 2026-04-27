@@ -5384,3 +5384,14 @@ if (require.main === module) {
 //}
 
 module.exports = app;
+
+if(process.env.NODE_ENV === "test"){
+  module.exports.__testHelpers = {
+    normalizeResourceUrl,
+    getEmbedUrl,
+    detectUploadedFileType,
+    normalizeQuizText,
+    canManageModuleQuiz,
+    extractYouTubeId,
+  };
+}
