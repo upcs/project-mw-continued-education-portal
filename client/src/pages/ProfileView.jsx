@@ -9,12 +9,18 @@ const defaultPhoto =
 
 export default function ProfileView() {
 
+  const { user, setUser } = useAuth();
+
   const [searchParams] = useSearchParams();
   const requestedEmail = searchParams.get("email");
-  const isOwnProfile = !requestedEmail || requestedEmail === user?.email;
+
+  const isOwnProfile = 
+      !requestedEmail || 
+      requestedEmail.toLowerCase() === user?.email?.toLowerCase();
+
   const pageTitle = isOwnProfile ? "Account Management" : "User Information";
 
-  const { user, setUser } = useAuth();
+
 
   const [profile, setProfile] = useState({
     photo: "",
@@ -119,7 +125,7 @@ export default function ProfileView() {
     };
 
     loadProfile();
-  }, [setUser, user?.email, user?.token]);
+  }, [requestedEmail, setUser, user?.email]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

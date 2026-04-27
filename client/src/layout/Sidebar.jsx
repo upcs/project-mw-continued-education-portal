@@ -22,38 +22,43 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { pendingReviews } = useReviewBadge();
+
   const [menuOpen, setMenuOpen] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const menuRef = useRef(null);
+
+  const getInitials = (name = "") => {
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length === 0) return "UP";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  };
 
   const navItems = useMemo(() => {
     const baseItems = [
-      { icon: LayoutDashboard, id: "dashboard", path: "/dashboard" },
-      { icon: GraduationCap, id: "myCourses", path: "/my-courses" },
-      { icon: BookOpen, id: "allCourses", path: "/catalog" },
-      { icon: MessageSquare, id: "discussion", path: "/discussion" },
-      { icon: Radio, id: "live", path: "/live" },
+      { icon: LayoutDashboard, id: "Dashboard", path: "/dashboard" },
+      { icon: GraduationCap, id: "My Courses", path: "/my-courses" },
+      { icon: BookOpen, id: "All Courses", path: "/catalog" },
+      { icon: MessageSquare, id: "Discussion", path: "/discussion" },
+      { icon: Radio, id: "Live Events", path: "/live" },
     ];
 
     if (user?.role === "admin" || user?.role === "trainer") {
-      baseItems.splice(3, 0, { icon: Upload, id: "upload", path: "/upload" });
+      baseItems.splice(3, 0, { icon: Upload, id: "Upload", path: "/upload" });
 
       baseItems.push({
         icon: ClipboardCheck,
-        id: "reviews",
+        id: "Reviews",
         path: "/reviews",
         badge: pendingReviews > 0 ? pendingReviews : null,
       });
     }
 
     if (user?.role === "admin") {
-      baseItems.push({
-        icon: Shield,
-        id: "admin",
-        path: "/admin",
-      });
+      baseItems.push({ icon: Shield, id: "Admin", path: "/admin" });
       baseItems.push({
         icon: Building2,
-        id: "organizations",
+        id: "Organizations",
         path: "/organizations",
       });
     }
@@ -61,7 +66,7 @@ export default function Sidebar() {
     if (user?.role === "principal") {
       baseItems.push({
         icon: Building2,
-        id: "educatorProgress",
+        id: "Educator Progress",
         path: "/educator-progress",
       });
     }
@@ -69,13 +74,13 @@ export default function Sidebar() {
     if (user?.role === "educator") {
       baseItems.push({
         icon: FileText,
-        id: "mySubmissions",
+        id: "My Submissions",
         path: "/my-submissions",
       });
     }
 
     return baseItems;
-  }, [user, pendingReviews]);
+  }, [user?.role, pendingReviews]);
 
   const displayUser = {
     name:
@@ -85,11 +90,10 @@ export default function Sidebar() {
       "UP Student",
     email: user?.email || localStorage.getItem("email") || "example@up.com",
     role: user?.role || "educator",
-    photo:
-      user?.photo ||
-      localStorage.getItem("photo") ||
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43b?auto=format&fit=crop&w=200&q=80",
+    photo: user?.photo || localStorage.getItem("photo") || null,
   };
+
+  const shouldShowPhoto = Boolean(displayUser.photo && !imageError);
 
   const handleLogout = () => {
     setMenuOpen(false);
@@ -101,6 +105,10 @@ export default function Sidebar() {
     setMenuOpen(false);
     navigate("/profile");
   };
+
+  useEffect(() => {
+    setImageError(false);
+  }, [displayUser.photo]);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -138,6 +146,7 @@ export default function Sidebar() {
                 `sidebar__item ${isActive ? "sidebar__item--active" : ""}`
               }
               title={item.id}
+              aria-label={item.id}
             >
               <div className="sidebar__iconWrap">
                 <Icon size={24} />
@@ -176,15 +185,19 @@ export default function Sidebar() {
             <div className="sidebar__menuDivider" />
 
             <div className="sidebar__menuUser">
-              <img
-                src={displayUser.photo}
-                alt={displayUser.name}
-                className="sidebar__menuAvatar"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = "/images/default-avatar.png";
-                }}
-              />
+              {shouldShowPhoto ? (
+                <img
+                  src={displayUser.photo}
+                  alt={displayUser.name}
+                  className="sidebar__menuAvatar"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div className="sidebar__menuAvatar sidebar__menuAvatar--initials">
+                  {getInitials(displayUser.name)}
+                </div>
+              )}
+
               <div className="sidebar__menuUserText">
                 <p className="sidebar__menuName">{displayUser.name}</p>
                 <p className="sidebar__menuEmail">{displayUser.email}</p>
@@ -203,15 +216,18 @@ export default function Sidebar() {
           onClick={() => setMenuOpen((prev) => !prev)}
           aria-label="Open profile menu"
         >
-          <img
-            src={displayUser.photo}
-            alt={displayUser.name}
-            className="sidebar__profileImage"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = "/images/default-avatar.png";
-            }}
-          />
+          {shouldShowPhoto ? (
+            <img
+              src={displayUser.photo}
+              alt={displayUser.name}
+              className="sidebar__profileImage"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="sidebar__profileInitials">
+              {getInitials(displayUser.name)}
+            </div>
+          )}
         </button>
       </div>
     </aside>

@@ -140,15 +140,39 @@ export default function ReviewsRedirectPage() {
                     <td>{course.course_title || `Course #${course.course_id}`}</td>
                     <td>{course.pendingCount || 0}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="reviews-table__action"
-                        onClick={() =>
-                          handleOpenCourseReviews(course.course_id)
-                        }
-                      >
-                        Review Submissions
-                      </button>
+                      <div className="reviews-table__actions">
+                        <button
+                          type="button"
+                          className="reviews-table__action"
+                          onClick={() =>
+                            handleOpenCourseReviews(course.course_id)
+                          }
+                        >
+                          Submissions
+                        </button>
+
+                        <button
+                          type="button"
+                          className="reviews-table__action reviews-table__action--secondary"
+                          onClick={() =>
+                            navigate(`/course-details/${course.course_id}`)
+                          }
+                        >
+                          Open Course
+                        </button>
+
+                        {course.module_id && (
+                          <button
+                            type="button"
+                            className="reviews-table__action reviews-table__action--primary"
+                            onClick={() =>
+                              navigate(`/quiz-review/${course.module_id}`)
+                            }
+                          >
+                            Quiz Review
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -1,12 +1,13 @@
 .app {
-  display: flex;
   min-height: 100vh;
-  background: #f5f7fb; /* Background-Important */
+  background: #f5f7fb;
 }
 
-/* content area */
+/* push content to the right of fixed sidebar */
 .app__content {
-  flex: 1;
+  margin-left: 96px; /* MUST match sidebar width */
+  width: calc(100% - 96px);
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -14,8 +15,10 @@
 /* main content */
 .app__main {
   padding: 1.5rem 2rem;
+  box-sizing: border-box;
 }
 
+/* page header */
 .page-head {
   margin-bottom: 24px;
   padding-top: 12px;

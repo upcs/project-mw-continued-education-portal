@@ -364,7 +364,7 @@ export default function CourseDetails() {
 
         <button
           type="button"
-          className="quiz-panel__submit"
+          className="app-btn app-btn--primary"
           onClick={() => navigate(`/take-quiz/${activeModule.id}`)}
         >
           Take Quiz
@@ -479,7 +479,7 @@ export default function CourseDetails() {
         >
           <button
             type="button"
-            className="quiz-panel__reviewButton"
+            className="app-btn app-btn--secondary"
             onClick={() => navigate(`/quiz-builder/${activeModule.id}`)}
           >
             Build Quiz
@@ -487,7 +487,7 @@ export default function CourseDetails() {
 
           <button
             type="button"
-            className="quiz-panel__reviewButton"
+            className="app-btn app-btn--primary"
             onClick={() => navigate(`/quiz-review/${activeModule.id}`)}
           >
             Review Attempts
@@ -699,7 +699,7 @@ export default function CourseDetails() {
                 <span className="lesson-sidebar__item-index">{index + 2}</span>
                 <span className="lesson-sidebar__item-main">
                   <span className="lesson-sidebar__item-title">{item.title}</span>
-                  <span className="lesson-sidebar__item-subtitle">
+                  <span className={`module-badge module-badge--${item.type}`}>
                     {item.type === "quiz" ? "Quiz" : "Module"}
                   </span>
                 </span>
@@ -738,7 +738,7 @@ export default function CourseDetails() {
         {isTrainerOrAdmin && isEditMode && (
           <div className="lesson-sidebar__actions">
             <button
-              className="lesson-sidebar__add-btn"
+              className="app-btn app-btn--danger"
               onClick={() => openAddForm("lesson")}
               type="button"
             >
@@ -818,10 +818,11 @@ export default function CourseDetails() {
             )}
 
             <div className="lesson-sidebar__add-controls">
-              <button type="button" onClick={closeAddForm}>
+              <button type="button" className="app-btn app-btn--secondary" onClick={closeAddForm}>
                 Cancel
               </button>
-              <button type="submit" disabled={addingItem}>
+              
+              <button type="submit" className="app-btn app-btn--primary" disabled={addingItem}>
                 {addingItem ? "Saving..." : "Save"}
               </button>
             </div>

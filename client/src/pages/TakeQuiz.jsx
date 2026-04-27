@@ -23,13 +23,28 @@ export default function TakeQuiz() {
   const [result, setResult] = useState(null);
   const [violationCount, setViolationCount] = useState(0);
 
+  const submittingRef = useRef(false);
+
+  const quiz = quizData?.quiz;
+  const questions = useMemo(() => quizData?.questions || [], [quizData]);
+
   const alreadyLocked = useMemo(() => {
     const lockedUntil = quizData?.latestAttempt?.locked_until;
     if (!lockedUntil) return false;
     return new Date(lockedUntil).getTime() > Date.now();
   }, [quizData]);
 
-  const submittingRef = useRef(false);
+  const answeredCount = useMemo(() => {
+    return questions.filter((question) => {
+      const value = answers[question.id];
+
+      if (question.question_type === "fill_blank") {
+        return String(value || "").trim().length > 0;
+      }
+
+      return value !== undefined && value !== null && value !== "";
+    }).length;
+  }, [answers, questions]);
 
   const loadQuiz = async () => {
     try {
@@ -37,6 +52,7 @@ export default function TakeQuiz() {
       setError("");
 
       const { data } = await getTakeQuiz(moduleId);
+
       if (!data?.success) {
         throw new Error(data?.message || "Failed to load quiz");
       }
@@ -44,7 +60,9 @@ export default function TakeQuiz() {
       setQuizData(data.data);
     } catch (err) {
       console.error("LOAD TAKE QUIZ ERROR:", err);
-      setError(err?.response?.data?.message || err.message || "Failed to load quiz");
+      setError(
+        err?.response?.data?.message || err.message || "Failed to load quiz"
+      );
     } finally {
       setLoading(false);
     }
@@ -71,6 +89,7 @@ export default function TakeQuiz() {
       setMessage("");
 
       const { data } = await startQuizAttempt(moduleId);
+
       if (!data?.success) {
         throw new Error(data?.message || "Failed to start quiz");
       }
@@ -80,21 +99,22 @@ export default function TakeQuiz() {
       await requestFullscreen();
     } catch (err) {
       console.error("START QUIZ ERROR:", err);
-      setError(err?.response?.data?.message || err.message || "Failed to start quiz");
+      setError(
+        err?.response?.data?.message || err.message || "Failed to start quiz"
+      );
     } finally {
       setStarting(false);
     }
   };
 
   const buildAnswersPayload = () => {
-    const questions = quizData?.questions || [];
     return questions.map((question) => {
       const value = answers[question.id];
 
       if (question.question_type === "fill_blank") {
         return {
           question_id: question.id,
-          answer_text: value || "",
+          answer_text: String(value || "").trim(),
         };
       }
 
@@ -105,8 +125,38 @@ export default function TakeQuiz() {
     });
   };
 
-  const handleSubmitQuiz = async () => {
+  const validateAnswers = () => {
+    return questions.filter((question) => {
+      const value = answers[question.id];
+
+      if (question.question_type === "fill_blank") {
+        return !String(value || "").trim();
+      }
+
+      return value === undefined || value === null || value === "";
+    });
+  };
+
+  const handleSubmitQuiz = async ({ force = false } = {}) => {
     if (!attemptId || submittingRef.current) return;
+
+    if (!force) {
+      const unanswered = validateAnswers();
+
+      if (unanswered.length > 0) {
+        setError("Please answer all questions before submitting.");
+
+        const firstUnanswered = document.getElementById(
+          `question-${unanswered[0].id}`
+        );
+        firstUnanswered?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        return;
+      }
+    }
 
     try {
       submittingRef.current = true;
@@ -125,10 +175,13 @@ export default function TakeQuiz() {
       setMessage("Quiz submitted successfully.");
     } catch (err) {
       console.error("SUBMIT QUIZ ERROR:", err);
-      setError(err?.response?.data?.message || err.message || "Failed to submit quiz");
+      setError(
+        err?.response?.data?.message || err.message || "Failed to submit quiz"
+      );
     } finally {
       setSubmitting(false);
       submittingRef.current = false;
+
       if (document.fullscreenElement) {
         document.exitFullscreen?.();
       }
@@ -146,7 +199,7 @@ export default function TakeQuiz() {
         setViolationCount(data.violationCount || 0);
 
         if (data.shouldAutoSubmit) {
-          await handleSubmitQuiz();
+          await handleSubmitQuiz({ force: true });
         }
       } catch (err) {
         console.error("QUIZ VIOLATION ERROR:", err);
@@ -178,7 +231,7 @@ export default function TakeQuiz() {
       window.removeEventListener("blur", handleBlur);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
-  }, [attemptId, result]);
+  }, [attemptId, result, answers, questions]);
 
   if (loading) {
     return <section className="take-quiz-page">Loading quiz...</section>;
@@ -188,9 +241,6 @@ export default function TakeQuiz() {
     return <section className="take-quiz-page">{error}</section>;
   }
 
-  const quiz = quizData?.quiz;
-  const questions = quizData?.questions || [];
-
   return (
     <section className="take-quiz-page">
       <header className="take-quiz-page__header">
@@ -198,13 +248,24 @@ export default function TakeQuiz() {
           <h1>{quiz?.title || "Take Quiz"}</h1>
           <p>{quiz?.instructions || "Answer all questions and submit."}</p>
         </div>
-        <button type="button" onClick={() => navigate(-1)}>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (!attemptId || result) {
+              navigate(-1);
+              return;
+            }
+
+            alert("You cannot leave during the quiz. Submit first.");
+          }}
+        >
           Back
         </button>
       </header>
 
-      {message && <p className="take-quiz__message">{message}</p>}
-      {error && <p className="take-quiz__error">{error}</p>}
+      {message && <p className="take-quiz-message">{message}</p>}
+      {error && <p className="take-quiz-error">{error}</p>}
 
       {alreadyLocked && !attemptId && !result && (
         <div className="take-quiz-card">
@@ -221,6 +282,7 @@ export default function TakeQuiz() {
           <h2>Ready to Start</h2>
           <p>Total points: {quiz?.total_points || 0}</p>
           <p>Pass percentage: {quiz?.pass_percentage || 70}%</p>
+
           <button type="button" onClick={handleStartQuiz} disabled={starting}>
             {starting ? "Starting..." : "Take Quiz"}
           </button>
@@ -229,23 +291,44 @@ export default function TakeQuiz() {
 
       {attemptId && !result && (
         <>
+          <div className="take-quiz-exam-bar">
+            <div>
+              Question Progress: {answeredCount} / {questions.length}
+            </div>
+            <div className="take-quiz-violations">
+              ⚠ Violations: {violationCount}
+            </div>
+          </div>
+
           <div className="take-quiz-card">
-            <strong>Warning:</strong> Leaving fullscreen or switching tabs may submit your quiz automatically.
-            <div>Violations: {violationCount}</div>
+            <strong>Warning:</strong> Leaving fullscreen or switching tabs may
+            submit your quiz automatically.
           </div>
 
           <form
             className="take-quiz-form"
             onSubmit={(e) => {
               e.preventDefault();
-              handleSubmitQuiz();
+
+              const confirmed = window.confirm(
+                "Submit quiz? You cannot change answers after this."
+              );
+
+              if (confirmed) {
+                handleSubmitQuiz();
+              }
             }}
           >
             {questions.map((question, index) => (
-              <div key={question.id} className="take-quiz-question-card">
+              <div
+                key={question.id}
+                id={`question-${question.id}`}
+                className="take-quiz-question-card"
+              >
                 <h3>
                   {index + 1}. {question.prompt}
                 </h3>
+
                 <p>{question.points} point(s)</p>
 
                 {question.question_type === "fill_blank" ? (
@@ -261,22 +344,34 @@ export default function TakeQuiz() {
                   />
                 ) : (
                   <div className="take-quiz-choices">
-                    {(question.choices || []).map((choice) => (
-                      <label key={choice.id}>
-                        <input
-                          type="radio"
-                          name={`question-${question.id}`}
-                          checked={Number(answers[question.id]) === Number(choice.id)}
-                          onChange={() =>
-                            setAnswers((prev) => ({
-                              ...prev,
-                              [question.id]: choice.id,
-                            }))
+                    {(question.choices || []).map((choice) => {
+                      const selected =
+                        Number(answers[question.id]) === Number(choice.id);
+
+                      return (
+                        <label
+                          key={choice.id}
+                          className={
+                            selected
+                              ? "take-quiz-choice take-quiz-choice--active"
+                              : "take-quiz-choice"
                           }
-                        />
-                        {choice.choice_text}
-                      </label>
-                    ))}
+                        >
+                          <input
+                            type="radio"
+                            name={`question-${question.id}`}
+                            checked={selected}
+                            onChange={() =>
+                              setAnswers((prev) => ({
+                                ...prev,
+                                [question.id]: choice.id,
+                              }))
+                            }
+                          />
+                          {choice.choice_text}
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -296,7 +391,11 @@ export default function TakeQuiz() {
             Score: {result.earned_points} / {result.total_points}
           </p>
           <p>Percentage: {Number(result.percentage || 0).toFixed(2)}%</p>
-          <p>Status: {result.passed ? "Passed" : "Failed"}</p>
+
+          <p className={result.passed ? "quiz-pass" : "quiz-fail"}>
+            {result.passed ? "Passed" : "Failed"}
+          </p>
+
           <p>
             Quiz locked until: {new Date(result.locked_until).toLocaleString()}
           </p>

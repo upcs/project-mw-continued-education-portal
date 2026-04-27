@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "../css/upload.css";
 import API from "../api/api";
 
 export default function UploadCourse() {
   const thumbnailInputRef = useRef(null);
   const fileInputRef = useRef(null);
+
   const [resourceType, setResourceType] = useState("file");
   const [resourceUrl, setResourceUrl] = useState("");
 
@@ -26,9 +27,14 @@ export default function UploadCourse() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const revokePreviewUrls = () => {
-    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+  const normalizedUrl = useMemo(() => resourceUrl.trim(), [resourceUrl]);
+
+  const revokeFilePreview = () => {
     if (fileObjectUrl) URL.revokeObjectURL(fileObjectUrl);
+  };
+
+  const revokeThumbnailPreview = () => {
+    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
   };
 
   const resetFileInputValues = () => {
@@ -36,8 +42,18 @@ export default function UploadCourse() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const clearCourseFile = () => {
+    revokeFilePreview();
+    setCourseFile(null);
+    setFilePreview("");
+    setFileObjectUrl("");
+    setFileType("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const clearAll = () => {
-    revokePreviewUrls();
+    revokeFilePreview();
+    revokeThumbnailPreview();
 
     setFormData({
       title: "",
@@ -45,6 +61,8 @@ export default function UploadCourse() {
       description: "",
     });
 
+    setResourceType("file");
+    setResourceUrl("");
     setThumbnail(null);
     setCourseFile(null);
     setThumbnailPreview("");
@@ -54,8 +72,6 @@ export default function UploadCourse() {
     setError("");
     setMessage("");
     resetFileInputValues();
-    setResourceUrl("");
-    setResourceType("file");
   };
 
   useEffect(() => {
@@ -76,6 +92,21 @@ export default function UploadCourse() {
     }));
   };
 
+  const handleResourceTypeChange = (e) => {
+    const nextType = e.target.value;
+    setResourceType(nextType);
+    setError("");
+    setMessage("");
+
+    if (nextType === "url") {
+      clearCourseFile();
+    }
+
+    if (nextType === "file") {
+      setResourceUrl("");
+    }
+  };
+
   const handleThumbnailChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -85,9 +116,10 @@ export default function UploadCourse() {
       return;
     }
 
-    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+    revokeThumbnailPreview();
 
     setError("");
+    setMessage("");
     setThumbnail(file);
     setThumbnailPreview(URL.createObjectURL(file));
   };
@@ -105,28 +137,28 @@ export default function UploadCourse() {
     const isVideo = detectedType.startsWith("video/");
 
     if (!isImage && !isVideo && !isPdf && !isText) {
-      setError("Only images, videos, PDFs, and text files are allowed.");
+      setError("Only images, videos, PDFs, TXT, and MD files are allowed.");
       return;
     }
 
-    if (fileObjectUrl) URL.revokeObjectURL(fileObjectUrl);
-
-    setError("");
-    setCourseFile(file);
+    revokeFilePreview();
 
     let normalizedType = detectedType;
     if (isPdf) normalizedType = "application/pdf";
-    else if (isText) normalizedType = "text/plain";
-
-    setFileType(normalizedType);
+    if (isText) normalizedType = "text/plain";
 
     const objectUrl = URL.createObjectURL(file);
+
+    setError("");
+    setMessage("");
+    setCourseFile(file);
+    setFileType(normalizedType);
     setFileObjectUrl(objectUrl);
 
     if (isText) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setFilePreview(e.target?.result || "");
+      reader.onload = (event) => {
+        setFilePreview(event.target?.result || "");
       };
       reader.readAsText(file);
     } else {
@@ -142,13 +174,26 @@ export default function UploadCourse() {
 
   const handleDrop = (e) => {
     e.preventDefault();
+
+    if (resourceType !== "file") return;
+
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
+
     processCourseFile(file);
   };
 
   const handleDragOver = (e) => {
     e.preventDefault();
+  };
+
+  const isValidHttpUrl = (value) => {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -171,9 +216,16 @@ export default function UploadCourse() {
       return;
     }
 
-    if (resourceType === "url" && !resourceUrl.trim()) {
-      setError("Please enter a resource URL.");
-      return;
+    if (resourceType === "url") {
+      if (!normalizedUrl) {
+        setError("Please enter a resource URL.");
+        return;
+      }
+
+      if (!isValidHttpUrl(normalizedUrl)) {
+        setError("Please enter a valid http or https URL.");
+        return;
+      }
     }
 
     try {
@@ -189,16 +241,15 @@ export default function UploadCourse() {
         data.append("thumbnail", thumbnail);
       }
 
-      if (resourceType === "file" && courseFile) {
+      if (resourceType === "file") {
         data.append("courseFile", courseFile);
       }
 
       if (resourceType === "url") {
-        data.append("resourceUrl", resourceUrl.trim());
+        data.append("resourceUrl", normalizedUrl);
       }
 
       const response = await API.post("/courses/upload", data);
-
       const result = response.data;
 
       if (!result?.success) {
@@ -221,7 +272,6 @@ export default function UploadCourse() {
     if (!courseFile) return null;
 
     const fileName = courseFile.name.toLowerCase();
-
     const isPdf = fileType.includes("pdf") || fileName.endsWith(".pdf");
     const isText =
       fileType.startsWith("text/") ||
@@ -251,7 +301,7 @@ export default function UploadCourse() {
         <iframe
           src={fileObjectUrl}
           title="PDF Preview"
-          className="upload-preview-pdf"
+          className="upload-preview-frame"
         />
       );
     }
@@ -265,94 +315,77 @@ export default function UploadCourse() {
 
   return (
     <section className="upload-page">
-      <div className="upload-page__header">
-        <div>
-          <h1 className="upload-page__title">Upload Course</h1>
-          <p className="upload-page__subtitle">
-            Upload the main course file. Lesson count, quiz count, and learner
-            progress are calculated automatically later from modules and quizzes.
-          </p>
-        </div>
-      </div>
+      <header className="upload-page__header">
+        <p className="upload-page__eyebrow">Course Studio</p>
+        <h1 className="upload-page__title">Upload Course</h1>
+        <p className="upload-page__subtitle">
+          Add a course file or online resource. Modules and quizzes can be added later.
+        </p>
+      </header>
 
       <form className="upload-page__layout" onSubmit={handleSubmit}>
         <div className="upload-panel upload-panel--left">
           <div className="upload-card">
             <div className="upload-card__header">
-              <h2>Course Files</h2>
-              <p>Upload the main course file and an optional thumbnail.</p>
+              <h2>Course Resource</h2>
+              <p>Choose between uploading a file or linking an online resource.</p>
             </div>
 
-              <div className="upload-field">
-                <span>Resource Type</span>
-                <select
-                  value={resourceType}
-                  onChange={(e) => {
-                    const newType = e.target.value;
-                    setResourceType(newType);
-                    
-                    if(newType === "url"){
-                      setCourseFile(null);
-                      setFilePreview("");
-                      setFileObjectUrl("");
-                    }
-                    if (newType === "file"){
-                      setResourceUrl("");
-                    }
+            <label className="upload-field">
+              <span>Resource Type</span>
+              <select value={resourceType} onChange={handleResourceTypeChange}>
+                <option value="file">Upload File</option>
+                <option value="url">Online Resource URL</option>
+              </select>
+            </label>
 
-                    setError("");
-                  }}
-                  >
-                  <option value="file">Upload File</option>
-                  <option value="url">Online Resource (URL)</option>
-                </select>
-              </div>
-            
-              {resourceType === "url" && (
+            {resourceType === "url" ? (
               <label className="upload-field">
                 <span>Resource URL</span>
                 <input
                   type="url"
-                  placeholder="https://..."
+                  placeholder="https://example.com/resource"
                   value={resourceUrl}
-                  onChange={(e) => setResourceUrl(e.target.value)}
+                  onChange={(e) => {
+                    setResourceUrl(e.target.value);
+                    setError("");
+                    setMessage("");
+                  }}
                 />
               </label>
-              )}
-
-
-              <div
+            ) : (
+              <>
+                <div
                   className="upload-dropzone"
-                  onDrop={resourceType === "file" ? handleDrop : undefined}
-                  onDragOver={resourceType === "file" ? handleDragOver : undefined}
-                  onClick={() => 
-                  resourceType === "file" && fileInputRef.current?.click()
-                  }
-                  > 
-                  <button
-                    type="button"
-                    className="upload-secondary-btn"
-                    disabled={resourceType !== "file"}
-                    onClick={() => fileInputRef.current?.click()}
-                    >
-                    Browse Course File
-                  </button>
-
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onClick={() => fileInputRef.current?.click()}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                >
                   <div className="upload-dropzone__icon">☁</div>
-                 <h3>Drag and drop your course file</h3>
-                 <p>or click here to browse</p>
+                  <h3>Drag and drop your course file</h3>
+                  <p>or click to browse</p>
                   <span className="upload-dropzone__hint">
-                  PDF, TXT, MD, image, or video
+                    PDF, TXT, MD, image, or video
                   </span>
-              </div>
+                </div>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.txt,.md,image/*,video/*"
-              className="hidden-file-input"
-              onChange={handleCourseFileChange}
-            />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.txt,.md,image/*,video/*"
+                  className="hidden-file-input"
+                  onChange={handleCourseFileChange}
+                />
+              </>
+            )}
 
             <input
               ref={thumbnailInputRef}
@@ -363,13 +396,15 @@ export default function UploadCourse() {
             />
 
             <div className="upload-actions-row">
-              <button
-                type="button"
-                className="upload-secondary-btn"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Browse Course File
-              </button>
+              {resourceType === "file" && (
+                <button
+                  type="button"
+                  className="upload-secondary-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Browse Course File
+                </button>
+              )}
 
               <button
                 type="button"
@@ -383,10 +418,18 @@ export default function UploadCourse() {
             <div className="upload-file-list">
               <div className="upload-file-row">
                 <div>
-                  <strong>Course File</strong>
-                  <p>{courseFile ? courseFile.name : "No file selected"}</p>
+                  <strong>Course Resource</strong>
+                  <p>
+                    {resourceType === "file"
+                      ? courseFile?.name || "No file selected"
+                      : normalizedUrl || "No URL entered"}
+                  </p>
                 </div>
-                {courseFile && <span className="upload-file-row__status">Ready</span>}
+
+                {((resourceType === "file" && courseFile) ||
+                  (resourceType === "url" && normalizedUrl)) && (
+                  <span className="upload-file-row__status">Ready</span>
+                )}
               </div>
 
               <div className="upload-file-row">
@@ -394,22 +437,39 @@ export default function UploadCourse() {
                   <strong>Thumbnail</strong>
                   <p>{thumbnail ? thumbnail.name : "No thumbnail selected"}</p>
                 </div>
+
                 {thumbnail && <span className="upload-file-row__status">Ready</span>}
               </div>
             </div>
           </div>
 
-          {(courseFile || thumbnailPreview || (resourceType === "url" && resourceUrl.trim())) && (
+          {(courseFile || thumbnailPreview || (resourceType === "url" && normalizedUrl)) && (
             <div className="upload-card">
               <div className="upload-card__header">
                 <h2>Preview</h2>
-                <p>Review selected files before publishing.</p>
+                <p>Review your selected resource before publishing.</p>
               </div>
 
               {courseFile && (
                 <div className="upload-preview-section">
                   <h3>Course File Preview</h3>
                   {renderCourseFilePreview()}
+                </div>
+              )}
+
+              {resourceType === "url" && normalizedUrl && (
+                <div className="upload-preview-section">
+                  <h3>URL Preview</h3>
+                  <div className="upload-url-preview">
+                    <p>{normalizedUrl}</p>
+                    <a href={normalizedUrl} target="_blank" rel="noreferrer">
+                      Open resource
+                    </a>
+                  </div>
+                  <p className="upload-note">
+                    Some websites block embedded previews, so students will also receive
+                    the direct resource link.
+                  </p>
                 </div>
               )}
 
@@ -423,38 +483,15 @@ export default function UploadCourse() {
                   />
                 </div>
               )}
-
-              {resourceType === "url" && resourceUrl.trim() && (
-                <div className="upload-preview-section">
-                  <h3>URL Preview</h3>
-                  <iframe
-                    src={resourceUrl.trim()}
-                    title="Resource preview"
-                    className="upload-preview-pdf"
-                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                    referrerPolicy="no-referrer"
-                  />
-                  <a
-                    href={resourceUrl.trim()}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="lesson-view__file-link"
-                    style={{ display: "inline-block", marginTop: "8px" }}
-                  >
-                    Open resource in new tab
-                  </a>
-                </div>
-              )}
-
             </div>
           )}
         </div>
 
         <div className="upload-panel upload-panel--right">
-          <div className="upload-card">
+          <div className="upload-card upload-card--sticky">
             <div className="upload-card__header">
               <h2>Course Details</h2>
-              <p>Fill in the base information for the course.</p>
+              <p>Fill in the basic information for the course.</p>
             </div>
 
             <div className="upload-form-grid">
@@ -484,7 +521,7 @@ export default function UploadCourse() {
                 <span>Description</span>
                 <textarea
                   name="description"
-                  placeholder="Write a detailed description"
+                  placeholder="Write a course description"
                   value={formData.description}
                   onChange={handleChange}
                 />
@@ -505,6 +542,7 @@ export default function UploadCourse() {
                 type="button"
                 className="upload-ghost-btn"
                 onClick={clearAll}
+                disabled={loading}
               >
                 Clear
               </button>

@@ -364,3 +364,77 @@
 .organizations-page--editing {
   border-top: 4px solid #f59e0b;
 }
+
+.organizations-page {
+  background:
+    radial-gradient(circle at top left, rgba(79, 70, 229, 0.1), transparent 30%),
+    linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.organizations-page__eyebrow {
+  margin: 0 0 6px;
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.organizations-primary-btn {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
+}
+
+.organizations-primary-btn--active {
+  background: linear-gradient(135deg, #0f172a, #334155);
+}
+
+.organization-row {
+  transition: all 0.2s ease;
+}
+
+.organization-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(0,0,0,0.08);
+}
+
+.organization-member-chip {
+  transition: all 0.15s ease;
+}
+
+.organization-member-chip:hover {
+  transform: scale(1.02);
+}
+
+/* Dark mode */
+
+body.dark-mode .organizations-page {
+  background:
+    radial-gradient(circle at top left, rgba(129, 140, 248, 0.18), transparent 32%),
+    linear-gradient(135deg, #020617 0%, #111827 100%);
+}
+
+body.dark-mode .organizations-card,
+body.dark-mode .organization-row,
+body.dark-mode .organization-members__section {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: #334155;
+}
+
+body.dark-mode .organizations-stat-card {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: #334155;
+}
+
+body.dark-mode .organization-member-chip {
+  background: #020617;
+  border-color: #334155;
+}
+
+body.dark-mode .organizations-field input,
+body.dark-mode .organization-row__controls select,
+body.dark-mode .organizations-search input {
+  background: #020617;
+  border-color: #334155;
+  color: #e5e7eb;
+}
