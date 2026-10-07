@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">85.48% </span>
+                <span class="strong">85.43% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1272/1488</span>
+                <span class='fraction'>1273/1490</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">85.84% </span>
+                <span class="strong">85.79% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1249/1455</span>
+                <span class='fraction'>1250/1457</span>
             </div>
         
             
@@ -5448,7 +5448,20 @@
 <a name='L5383'></a><a href='#L5383'>5383</a>
 <a name='L5384'></a><a href='#L5384'>5384</a>
 <a name='L5385'></a><a href='#L5385'>5385</a>
-<a name='L5386'></a><a href='#L5386'>5386</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">14x</span>
+<a name='L5386'></a><a href='#L5386'>5386</a>
+<a name='L5387'></a><a href='#L5387'>5387</a>
+<a name='L5388'></a><a href='#L5388'>5388</a>
+<a name='L5389'></a><a href='#L5389'>5389</a>
+<a name='L5390'></a><a href='#L5390'>5390</a>
+<a name='L5391'></a><a href='#L5391'>5391</a>
+<a name='L5392'></a><a href='#L5392'>5392</a>
+<a name='L5393'></a><a href='#L5393'>5393</a>
+<a name='L5394'></a><a href='#L5394'>5394</a>
+<a name='L5395'></a><a href='#L5395'>5395</a>
+<a name='L5396'></a><a href='#L5396'>5396</a>
+<a name='L5397'></a><a href='#L5397'>5397</a>
+<a name='L5398'></a><a href='#L5398'>5398</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">14x</span>
@@ -10817,7 +10830,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -10841,6 +10865,7 @@ const dbms = require("./dbms.js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
+const https = require("https");
 const fs = require("fs");
 //import cors from "cors";
 &nbsp;
@@ -10849,7 +10874,7 @@ const PORT = process.env.PORT || <span class="branch-1 cbranch-no" title="branch
 //const PORT = 5000;
 &nbsp;
 const JWT_SECRET = process.env.JWT_SECRET;
-const APP_BASE_URL = `http://cs341s26mwed.campus.up.edu:${PORT}`;
+const APP_BASE_URL = `https://cs341s26mwed.campus.up.edu:${PORT}`;
 //const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
 &nbsp;
 <span class="missing-if-branch" title="if path not taken" >I</span>if (!JWT_SECRET){
@@ -16200,11 +16225,22 @@ app.get(/.*/, <span class="fstat-no" title="function not covered" >(r</span>eq, 
 <span class="cstat-no" title="statement not covered" >  res.sendFile(path.join(__dirname, "../build", "index.html"));</span>
 });
 &nbsp;
-<span class="missing-if-branch" title="if path not taken" >I</span>if (require.main === module){
-<span class="cstat-no" title="statement not covered" >    app.listen(PORT, "0.0.0.0",  <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        console.log(`Server running on Port: ${PORT}`);</span>
-   });
+<span class="missing-if-branch" title="if path not taken" >I</span>if (require.main === module) {
+  const options = <span class="cstat-no" title="statement not covered" >{</span>
+    key: fs.readFileSync('./key.pem'),
+    cert: fs.readFileSync('./cert.pem')
+  };
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  https.createServer(options, app).listen(PORT, "0.0.0.0", <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    console.log(`HTTPS Server running on Port: ${PORT}`);</span>
+  });
 }
+&nbsp;
+//if (require.main === module){
+//    app.listen(PORT, "0.0.0.0",  () =&gt; {
+//        console.log(`Server running on Port: ${PORT}`);
+//   });
+//}
 &nbsp;
 module.exports = app;
 &nbsp;
@@ -16225,7 +16261,7 @@ module.exports = app;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-27T04:39:22.256Z
+                at 2026-04-27T06:08:44.978Z
             </div>
         <script src="prettify.js"></script>
         <script>

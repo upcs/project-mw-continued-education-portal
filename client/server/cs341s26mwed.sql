@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Apr 23, 2026 at 03:32 PM
+-- Generation Time: Apr 27, 2026 at 05:54 AM
 -- Server version: 10.3.39-MariaDB
 -- PHP Version: 7.3.20
 
@@ -143,7 +143,8 @@ CREATE TABLE `discussions` (
 
 INSERT INTO `discussions` (`id`, `author_email`, `title`, `question`, `created_at`, `updated_at`) VALUES
 (1, 'malawi@up.edu', 'Hello', 'I need help Test', '2026-04-09 00:25:04', '2026-04-09 00:25:04'),
-(2, 'malawi@up.edu', 'test', 'test???', '2026-04-11 09:38:59', '2026-04-11 09:38:59');
+(2, 'malawi@up.edu', 'test', 'test???', '2026-04-11 09:38:59', '2026-04-11 09:38:59'),
+(3, 'educator@up.edu', 'Hello There', 'Hello Hello,', '2026-04-26 17:52:09', '2026-04-26 17:52:09');
 
 -- --------------------------------------------------------
 
@@ -224,29 +225,29 @@ CREATE TABLE `notifications` (
 
 INSERT INTO `notifications` (`id`, `recipient_email`, `actor_email`, `type`, `title`, `message`, `link`, `is_read`, `created_at`, `read_at`) VALUES
 (1, 'malawi_principal@up.edu', 'malawi@up.edu', 'principal_assigned', 'You were assigned as a principal', 'You have been assigned as the principal $(organizationName).', '/organization-management', 0, '2026-04-14 23:08:50', NULL),
-(2, 'educator@up.edu', 'malawi_principal@up.edu', 'course_assigned', 'New course assigned', 'A new course has been assigned to you.', '/course-details/19', 1, '2026-04-15 00:51:43', '2026-04-15 00:52:38'),
+(2, 'educator@up.edu', 'malawi_principal@up.edu', 'course_assigned', 'New course assigned', 'A new course has been assigned to you.', '/course-details/19', 1, '2026-04-15 00:51:43', '2026-04-27 02:34:39'),
 (3, 'malawi@up.edu', 'educator@up.edu', 'quiz_submitted', 'New quiz submission received', 'A learner submitted \"quiz\".', '/modules/24/submissions', 1, '2026-04-15 00:54:13', '2026-04-19 01:27:49'),
-(4, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 00:57:02', NULL),
-(5, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:20', NULL),
-(6, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:22', NULL),
-(7, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:22', NULL),
-(8, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:22', NULL),
-(9, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:23', NULL),
-(10, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:23', NULL),
-(11, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:23', NULL),
-(12, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:23', NULL),
-(13, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:23', NULL),
-(14, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:24', NULL),
-(15, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:24', NULL),
-(16, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:24', NULL),
-(17, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:24', NULL),
-(18, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:25', NULL),
-(19, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:25', NULL),
-(20, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:26', NULL),
-(21, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:26', NULL),
-(22, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:26', NULL),
-(23, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:26', NULL),
-(24, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 0, '2026-04-15 01:45:27', NULL);
+(4, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 00:57:02', '2026-04-27 00:51:36'),
+(5, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:20', '2026-04-27 00:51:36'),
+(6, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:22', '2026-04-27 00:51:36'),
+(7, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:22', '2026-04-27 00:51:36'),
+(8, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:22', '2026-04-27 00:51:36'),
+(9, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:23', '2026-04-27 00:51:36'),
+(10, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:23', '2026-04-27 00:51:36'),
+(11, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:23', '2026-04-27 00:51:36'),
+(12, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:23', '2026-04-27 00:51:36'),
+(13, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:23', '2026-04-27 00:51:36'),
+(14, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:24', '2026-04-27 00:51:36'),
+(15, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:24', '2026-04-27 00:51:36'),
+(16, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:24', '2026-04-27 00:51:36'),
+(17, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:24', '2026-04-27 00:51:36'),
+(18, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:25', '2026-04-27 00:51:36'),
+(19, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:25', '2026-04-27 00:51:36'),
+(20, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:26', '2026-04-27 02:34:54'),
+(21, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:26', '2026-04-27 00:51:36'),
+(22, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:26', '2026-04-27 00:51:36'),
+(23, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:26', '2026-04-27 00:51:36'),
+(24, 'educator@up.edu', 'malawi@up.edu', 'submission_reviewed', 'Your quiz submission was reviewed', 'Your submission for \"quiz\" in \"Test URL\" was approved.', '/my-submissions', 1, '2026-04-15 01:45:27', '2026-04-27 02:34:52');
 
 -- --------------------------------------------------------
 
@@ -288,20 +289,25 @@ CREATE TABLE `profile` (
   `organization` varchar(100) DEFAULT NULL,
   `specialization` varchar(100) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `organization_id` int(11) DEFAULT NULL
+  `organization_id` int(11) DEFAULT NULL,
+  `approval_status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `approved_by_email` varchar(255) DEFAULT NULL,
+  `approved_at` timestamp NULL DEFAULT NULL,
+  `rejected_by_email` varchar(255) DEFAULT NULL,
+  `rejected_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 --
 -- Dumping data for table `profile`
 --
 
-INSERT INTO `profile` (`id`, `photo`, `fullname`, `role`, `email`, `whatsapp`, `organization`, `specialization`, `created_at`, `organization_id`) VALUES
-(2, 'http://cs341s26mwed.campus.up.edu:3000/uploads/1776562035283-264659238-default-avatar.png', 'Malawi', 'admin', 'malawi@up.edu', '6153332156', '', '', '2026-04-08 04:06:06', 1),
-(3, NULL, 'Educator', 'educator', 'educator@up.edu', NULL, NULL, NULL, '2026-04-09 17:06:09', NULL),
-(4, '', 'Principal', 'principal', 'principal@up.edu', '', 'University of Portland', 'CS', '2026-04-09 17:06:44', NULL),
-(5, NULL, 'Trainer', 'trainer', 'trainer@up.edu', NULL, NULL, NULL, '2026-04-09 17:07:05', 4),
-(6, NULL, 'Hassin', 'trainer', 'hassin_trainer@gmail.com', NULL, NULL, NULL, '2026-04-09 17:16:30', 4),
-(7, NULL, 'Principal', 'principal', 'malawi_principal@up.edu', NULL, NULL, NULL, '2026-04-09 17:18:07', 4);
+INSERT INTO `profile` (`id`, `photo`, `fullname`, `role`, `email`, `whatsapp`, `organization`, `specialization`, `created_at`, `organization_id`, `approval_status`, `approved_by_email`, `approved_at`, `rejected_by_email`, `rejected_at`) VALUES
+(2, 'http://cs341s26mwed.campus.up.edu:3000/uploads/1776562035283-264659238-default-avatar.png', 'Malawi', 'admin', 'malawi@up.edu', '6153332156', '', 'CS', '2026-04-08 04:06:06', 1, 'approved', NULL, NULL, NULL, NULL),
+(3, '', 'Educator', 'educator', 'educator@up.edu', '', NULL, '', '2026-04-09 17:06:09', NULL, 'approved', NULL, NULL, NULL, NULL),
+(4, '', 'Principal', 'principal', 'principal@up.edu', '', 'University of Portland', 'CS', '2026-04-09 17:06:44', NULL, 'approved', NULL, NULL, NULL, NULL),
+(5, NULL, 'Trainer', 'trainer', 'trainer@up.edu', NULL, NULL, NULL, '2026-04-09 17:07:05', 4, 'approved', NULL, NULL, NULL, NULL),
+(6, NULL, 'Hassin', 'trainer', 'hassin_trainer@gmail.com', NULL, NULL, NULL, '2026-04-09 17:16:30', 4, 'approved', NULL, NULL, NULL, NULL),
+(7, NULL, 'Principal', 'principal', 'malawi_principal@up.edu', NULL, NULL, NULL, '2026-04-09 17:18:07', 4, 'approved', NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -326,6 +332,13 @@ CREATE TABLE `quiz_attempts` (
   `status` enum('in_progress','submitted','expired','auto_submitted') NOT NULL DEFAULT 'in_progress'
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
+--
+-- Dumping data for table `quiz_attempts`
+--
+
+INSERT INTO `quiz_attempts` (`id`, `quiz_id`, `module_id`, `course_id`, `user_email`, `started_at`, `submitted_at`, `locked_until`, `total_points`, `earned_points`, `percentage`, `passed`, `violation_count`, `status`) VALUES
+(1, 2, 27, 19, 'educator@up.edu', '2026-04-27 00:24:00', '2026-04-27 00:24:50', '2026-04-27 04:24:50', 140.00, 55.00, 39.29, 0, 2, 'submitted');
+
 -- --------------------------------------------------------
 
 --
@@ -341,6 +354,16 @@ CREATE TABLE `quiz_attempt_answers` (
   `is_correct` tinyint(1) NOT NULL DEFAULT 0,
   `earned_points` decimal(8,2) NOT NULL DEFAULT 0.00
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `quiz_attempt_answers`
+--
+
+INSERT INTO `quiz_attempt_answers` (`id`, `attempt_id`, `question_id`, `selected_choice_id`, `answer_text`, `is_correct`, `earned_points`) VALUES
+(1, 1, 1, 1, NULL, 1, 5.00),
+(2, 1, 2, 5, NULL, 0, 0.00),
+(3, 1, 3, NULL, 'Teacher', 0, 0.00),
+(4, 1, 4, 8, NULL, 1, 50.00);
 
 -- --------------------------------------------------------
 
@@ -362,6 +385,14 @@ CREATE TABLE `quiz_definitions` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
+--
+-- Dumping data for table `quiz_definitions`
+--
+
+INSERT INTO `quiz_definitions` (`id`, `module_id`, `title`, `instructions`, `pass_percentage`, `total_points`, `time_limit_minutes`, `is_published`, `created_by_email`, `created_at`, `updated_at`) VALUES
+(1, 21, 'test', '', 70.00, 0.00, NULL, 0, 'malawi@up.edu', '2026-04-26 23:52:53', '2026-04-26 23:52:53'),
+(2, 27, 'My Quiz', 'Hello please take the quiz', 80.00, 140.00, 80, 1, 'malawi@up.edu', '2026-04-27 00:19:28', '2026-04-27 00:22:56');
+
 -- --------------------------------------------------------
 
 --
@@ -379,6 +410,16 @@ CREATE TABLE `quiz_questions` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
+--
+-- Dumping data for table `quiz_questions`
+--
+
+INSERT INTO `quiz_questions` (`id`, `quiz_id`, `question_type`, `prompt`, `points`, `sort_order`, `correct_text`, `created_at`) VALUES
+(1, 2, 'multiple_choice', 'What is your name?', 5.00, 1, NULL, '2026-04-27 00:21:08'),
+(2, 2, 'true_false', 'Is this a book?', 50.00, 1, NULL, '2026-04-27 00:21:31'),
+(3, 2, 'fill_blank', 'I am a ___________.', 35.00, 1, 'student', '2026-04-27 00:22:06'),
+(4, 2, 'multiple_choice', 'organization?', 50.00, 1, NULL, '2026-04-27 00:22:41');
+
 -- --------------------------------------------------------
 
 --
@@ -392,6 +433,20 @@ CREATE TABLE `quiz_question_choices` (
   `is_correct` tinyint(1) NOT NULL DEFAULT 0,
   `sort_order` int(11) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+--
+-- Dumping data for table `quiz_question_choices`
+--
+
+INSERT INTO `quiz_question_choices` (`id`, `question_id`, `choice_text`, `is_correct`, `sort_order`) VALUES
+(1, 1, 'malawi', 1, 1),
+(2, 1, 'last name', 0, 2),
+(3, 1, 'full name', 0, 3),
+(4, 1, 'my name', 0, 4),
+(5, 2, 'True', 0, 1),
+(6, 2, 'False', 1, 2),
+(7, 4, 'UP', 0, 1),
+(8, 4, 'Malawi', 1, 2);
 
 -- --------------------------------------------------------
 
@@ -584,7 +639,7 @@ ALTER TABLE `course_modules`
 -- AUTO_INCREMENT for table `discussions`
 --
 ALTER TABLE `discussions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `discussion_replies`
@@ -620,31 +675,31 @@ ALTER TABLE `profile`
 -- AUTO_INCREMENT for table `quiz_attempts`
 --
 ALTER TABLE `quiz_attempts`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `quiz_attempt_answers`
 --
 ALTER TABLE `quiz_attempt_answers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `quiz_definitions`
 --
 ALTER TABLE `quiz_definitions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `quiz_questions`
 --
 ALTER TABLE `quiz_questions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `quiz_question_choices`
 --
 ALTER TABLE `quiz_question_choices`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `quiz_submissions`
